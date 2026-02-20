@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, Link } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import menuSeed, { MenuItem } from "../data/menu";
 import { apiFetch } from "../lib/api";
+import { useCart } from "../lib/cart-context";
 
 const { width } = Dimensions.get("window");
 const cardWidth = 260;
@@ -22,7 +23,7 @@ export default function MenuScreen() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
-  const [cart, setCart] = useState<Record<string, MenuItem>>({});
+  const { cart, addItem, removeItem } = useCart();
 
   useEffect(() => {
     let mounted = true;
@@ -53,16 +54,13 @@ export default function MenuScreen() {
       : items.filter((i) => (i.category || "uncategorized") === category);
 
   const toggleCart = (item: MenuItem) => {
-    setCart((c) => {
-      const next = { ...c };
-      if (next[item.id]) delete next[item.id];
-      else next[item.id] = item;
-      return next;
-    });
+    const inCart = !!cart.find((i) => i.id === item.id);
+    if (inCart) removeItem(item.id);
+    else addItem({ id: item.id, name: item.name, price: item.price, image: item.image, localImage: item.localImage }, 1);
   };
 
   const renderCard = ({ item }: { item: MenuItem }) => {
-    const inCart = !!cart[item.id];
+    const inCart = !!cart.find((c) => c.id === item.id);
     const source =
       item.localImage ||
       (item.image?.startsWith("http")
@@ -99,6 +97,9 @@ export default function MenuScreen() {
       <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
           <Text style={styles.title}>Our Menu</Text>
+          <Link href="/cart" style={styles.cartLink}>
+            <Text style={styles.cartLinkText}>Cart ({cart.length})</Text>
+          </Link>
         </View>
 
         <View style={styles.filters}>
@@ -175,6 +176,8 @@ const styles = StyleSheet.create({
     columnGap: 14,
     paddingHorizontal: 10,
   },
+  cartLink: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: "#111827", borderRadius: 10 },
+  cartLinkText: { color: "white", fontWeight: "800" },
   card: {
     width: cardWidth,
     backgroundColor: "#fff",
