@@ -1,11 +1,19 @@
-import * as Camera from "expo-camera";
-import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import * as FileSystem from "expo-file-system";
+
+function optionalRequire(moduleName: string): any | null {
+  try {
+    return Function("m", "return require(m)")(moduleName);
+  } catch {
+    return null;
+  }
+}
 
 export async function takePhotoBase64() {
-  const { status } = await Camera.requestCameraPermissionsAsync();
+  const ImagePicker = optionalRequire("expo-image-picker");
+  if (!ImagePicker) return null;
+
+  const { status } = await ImagePicker.requestCameraPermissionsAsync();
   if (status !== "granted") return null;
   const result = await ImagePicker.launchCameraAsync({
     base64: true,
@@ -16,6 +24,9 @@ export async function takePhotoBase64() {
 }
 
 export async function pickImageBase64() {
+  const ImagePicker = optionalRequire("expo-image-picker");
+  if (!ImagePicker) return null;
+
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== "granted") return null;
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -55,9 +66,11 @@ export async function showLocalNotification(
 }
 
 export const saveFile = async (filename: string, data: string) => {
-  const uri = FileSystem.documentDirectory + filename;
-  await FileSystem.writeAsStringAsync(uri, data, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  const FileSystem =
+    optionalRequire("expo-file-system/legacy") || optionalRequire("expo-file-system");
+  if (!FileSystem?.documentDirectory || !FileSystem.writeAsStringAsync) return null;
+
+  const uri = `${FileSystem.documentDirectory}${filename}`;
+  await FileSystem.writeAsStringAsync(uri, data, { encoding: "base64" });
   return uri;
 };

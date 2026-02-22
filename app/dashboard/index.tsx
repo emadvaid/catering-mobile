@@ -8,7 +8,6 @@ import {
   View,
   Pressable,
 } from "react-native";
-import { VictoryBar, VictoryChart, VictoryTheme } from "victory-native";
 import { authFetch, clearToken } from "../../lib/auth";
 
 type Stats = {
@@ -59,6 +58,7 @@ export default function DashboardScreen() {
 
   const chartData =
     stats?.topItems?.map((it) => ({ x: it.name, y: it.revenue })) || [];
+  const maxRevenue = Math.max(...chartData.map((it) => it.y), 1);
 
   return (
     <>
@@ -93,12 +93,25 @@ export default function DashboardScreen() {
                 <Text className="font-semibold text-gray-900 mb-2">
                   Top Items (Revenue)
                 </Text>
-                <VictoryChart theme={VictoryTheme.material} domainPadding={20}>
-                  <VictoryBar
-                    style={{ data: { fill: "#b91c1c" } }}
-                    data={chartData}
-                  />
-                </VictoryChart>
+                <View className="gap-3">
+                  {chartData.map((item) => {
+                    const widthPct = Math.max(8, Math.round((item.y / maxRevenue) * 100));
+                    return (
+                      <View key={item.x} className="gap-1">
+                        <View className="flex-row justify-between">
+                          <Text className="text-gray-700 font-medium">{item.x}</Text>
+                          <Text className="text-gray-500">${item.y.toLocaleString()}</Text>
+                        </View>
+                        <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <View
+                            className="h-2 bg-red-700 rounded-full"
+                            style={{ width: `${widthPct}%` }}
+                          />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
             </>
           )}

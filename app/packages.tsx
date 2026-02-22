@@ -791,6 +791,7 @@ const styles = StyleSheet.create({
     width: "90%",
     maxWidth: 900,
   },
+  sectionTitle: { fontSize: 14, fontWeight: "800", color: "#111827" },
   sheetHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sheetTitle: { fontSize: 18, fontWeight: "800", color: "#111827" },
   limitBox: {

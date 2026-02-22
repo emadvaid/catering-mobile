@@ -4,6 +4,7 @@ import { Link } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Image,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -39,6 +40,7 @@ const howIcons = [
 ];
 
 type Layout = ReturnType<typeof buildLayout>;
+type GradientColors = readonly [string, string, ...string[]];
 
 export default function Home() {
   const { width } = useWindowDimensions();
@@ -104,8 +106,10 @@ export default function Home() {
                 </View>
               ))}
             </View>
-            <Link href="/menu" style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>View Full Menu</Text>
+            <Link href="/menu" asChild>
+              <Pressable style={styles.primaryBtn}>
+                <Text style={styles.primaryBtnText}>View Full Menu</Text>
+              </Pressable>
             </Link>
           </Section>
         </ColorSection>
@@ -118,7 +122,7 @@ export default function Home() {
           >
             <View style={styles.packagesRow}>
               {packages.slice(0, 3).map((pkg, idx) => {
-                const headerColors =
+                const headerColors: GradientColors =
                   idx === 0
                     ? ["#b91c1c", "#ef4444"]
                     : idx === 1
@@ -142,8 +146,10 @@ export default function Home() {
                     <Text style={styles.packageText}>
                       Desserts: {pkg.dessertsPremium?.[0] || pkg.dessertsRegular?.[0] || "Included"}
                     </Text>
-                    <Link href="/packages" style={styles.linkText}>
-                      Explore Package
+                    <Link href="/packages" asChild>
+                      <Pressable style={styles.linkBtn}>
+                        <Text style={styles.linkText}>Explore Package</Text>
+                      </Pressable>
                     </Link>
                   </View>
                 );
@@ -237,8 +243,10 @@ function Hero({ layout }: { layout: Layout }) {
               </Link>
             ))}
             <Text style={styles.cartIcon}>🛒</Text>
-            <Link href="/login" style={styles.loginBtn}>
-              <Text style={styles.loginBtnText}>Login</Text>
+            <Link href="/login" asChild>
+              <Pressable style={styles.loginBtn}>
+                <Text style={styles.loginBtnText}>Login</Text>
+              </Pressable>
             </Link>
           </View>
 
@@ -256,11 +264,15 @@ function Hero({ layout }: { layout: Layout }) {
             American, or any cuisine? Ask and we'll craft it loud and unforgettable.
           </Text>
           <View style={styles.heroButtons}>
-            <Link href="/menu" style={styles.ctaPrimary}>
-              <Text style={styles.ctaPrimaryText}>Browse Menu</Text>
+            <Link href="/menu" asChild>
+              <Pressable style={styles.ctaPrimary}>
+                <Text style={styles.ctaPrimaryText}>Browse Menu</Text>
+              </Pressable>
             </Link>
-            <Link href="/contact" style={styles.ctaGhost}>
-              <Text style={styles.ctaGhostText}>Contact Us</Text>
+            <Link href="/contact" asChild>
+              <Pressable style={styles.ctaGhost}>
+                <Text style={styles.ctaGhostText}>Contact Us</Text>
+              </Pressable>
             </Link>
           </View>
         </View>
@@ -295,7 +307,7 @@ function GradientBand({
   colors,
   children,
 }: {
-  colors: string[];
+  colors: GradientColors;
   children: ReactNode;
 }) {
   return (
@@ -318,11 +330,13 @@ function CategoryRibbon({ maxContent }: { maxContent: number }) {
         contentContainerStyle={styles.ribbonScroll}
       >
         {cuisineCategories.map((cat) => (
-          <Link key={cat.name} href={cat.link} style={styles.ribbonChip}>
-            <View style={styles.ribbonIcon}>
-              <Text style={styles.ribbonIconText}>{cat.icon}</Text>
-            </View>
-            <Text style={styles.ribbonLabel}>{cat.name}</Text>
+          <Link key={cat.name} href={cat.link} asChild>
+            <Pressable style={styles.ribbonChip}>
+              <View style={styles.ribbonIcon}>
+                <Text style={styles.ribbonIconText}>{cat.icon}</Text>
+              </View>
+              <Text style={styles.ribbonLabel}>{cat.name}</Text>
+            </Pressable>
           </Link>
         ))}
       </ScrollView>
@@ -346,11 +360,15 @@ function CTASection({ layout }: { layout: Layout }) {
           Experience world-class catering for weddings, corporate events, and celebrations.
         </Text>
         <View style={styles.heroButtons}>
-          <Link href="/menu" style={styles.ctaPrimary}>
-            <Text style={styles.ctaPrimaryText}>Browse Menu</Text>
+          <Link href="/menu" asChild>
+            <Pressable style={styles.ctaPrimary}>
+              <Text style={styles.ctaPrimaryText}>Browse Menu</Text>
+            </Pressable>
           </Link>
-          <Link href="/contact" style={styles.ctaGhost}>
-            <Text style={styles.ctaGhostText}>Contact Us</Text>
+          <Link href="/contact" asChild>
+            <Pressable style={styles.ctaGhost}>
+              <Text style={styles.ctaGhostText}>Contact Us</Text>
+            </Pressable>
           </Link>
         </View>
       </View>
@@ -582,7 +600,8 @@ const styles = StyleSheet.create({
   packageHeaderText: { color: "#fff", fontWeight: "800", fontSize: 17 },
   packageHeaderSub: { color: "rgba(255,255,255,0.9)", marginTop: 2, fontSize: 13 },
   packageText: { fontSize: 13, color: "#4b5563", paddingHorizontal: 14, paddingTop: 10 },
-  linkText: { color: "#2563eb", fontWeight: "700", marginTop: 12, padding: 14 },
+  linkBtn: { marginTop: 12, padding: 14 },
+  linkText: { color: "#2563eb", fontWeight: "700" },
 
   reasonsRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 12 },
   reasonCard: {
