@@ -1,5 +1,6 @@
 {
   "expo": {
+    "scheme": "catering-mobile",
     "name": "catering-mobile",
     "slug": "catering-mobile",
     "version": "1.0.0",
@@ -8,12 +9,14 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icons/icon-512.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#b30000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/icons/icon-256.png",
+      "bundleIdentifier": "com.anonymous.catering-mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +27,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ]
   }
 }
