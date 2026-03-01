@@ -1,25 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
 import { PACKAGES } from '../data/packages';
 
-export default function HomeScreen() {
-  const { addItem, itemCount } = useCart();
-
-  async function resetOnboarding() {
-    await AsyncStorage.removeItem('hasSeenOnboarding');
-  }
+export default function MenuScreen() {
+  const { addItem } = useCart();
 
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.eyebrow}>Kabab Hut Catering</Text>
-        <Text style={styles.text}>Packages</Text>
-        <Text style={styles.subtitle}>
-          Browse packages first. Auth will only be required when you continue from cart.
-        </Text>
+        <Text style={styles.title}>Menu</Text>
+        <Text style={styles.subtitle}>Tap any package to add it to your cart.</Text>
 
         {PACKAGES.map((pkg) => (
           <View key={pkg.id} style={styles.card}>
@@ -31,22 +23,13 @@ export default function HomeScreen() {
               style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : null]}
               onPress={() => addItem(pkg)}
             >
-              <Text style={styles.addButtonText}>Add to Cart</Text>
+              <Text style={styles.addButtonText}>Add</Text>
             </Pressable>
           </View>
         ))}
-
-        <Text style={styles.cartCounter}>Items in cart: {itemCount}</Text>
-
-        <Pressable
-          style={({ pressed }) => [styles.button, pressed ? styles.pressed : null]}
-          onPress={resetOnboarding}
-        >
-          <Text style={styles.buttonText}>Reset Onboarding (Test)</Text>
-        </Pressable>
       </ScrollView>
 
-      <BottomNav activeRoute="/" />
+      <BottomNav activeRoute="/menu" />
     </SafeAreaView>
   );
 }
@@ -58,17 +41,10 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 28,
+    paddingVertical: 24,
     gap: 12,
   },
-  eyebrow: {
-    color: '#b30000',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  text: {
+  title: {
     fontSize: 28,
     fontWeight: '700',
     color: '#111827',
@@ -83,8 +59,8 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: '#fee2e2',
-    backgroundColor: '#fff5f5',
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
     borderRadius: 14,
     padding: 14,
     gap: 8,
@@ -110,22 +86,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 13,
-  },
-  cartCounter: {
-    marginTop: 6,
-    color: '#111827',
-    fontWeight: '600',
-  },
-  button: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
   },
   pressed: {
     opacity: 0.72,

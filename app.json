@@ -1,6 +1,6 @@
 {
   "expo": {
-    "scheme": "catering-mobile",
+    "scheme": "cateringmobile",
     "name": "catering-mobile",
     "slug": "catering-mobile",
     "version": "1.0.0",
@@ -16,9 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/icons/icon-256.png",
-      "bundleIdentifier": "com.anonymous.catering-mobile"
+      "bundleIdentifier": "com.anonymous.cateringmobile"
     },
     "android": {
+      "package": "com.anonymous.cateringmobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
