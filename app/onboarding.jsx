@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, radii, spacing } from '../lib/theme';
 
 const ONBOARDING_KEY = 'hasSeenOnboarding';
 
@@ -16,17 +12,23 @@ const SLIDES = [
   {
     id: 'welcome',
     title: 'Welcome to Kabab Hut Catering',
-    subtitle: 'Book catering in a few simple steps.',
+    subtitle: 'Authentic South Asian catering for events that deserve bold flavor.',
+    icon: 'restaurant-outline',
+    iconBg: '#fee2e2',
   },
   {
     id: 'menu',
-    title: 'Browse Menu & Packages',
-    subtitle: 'Explore dishes and choose what fits your event.',
+    title: 'Browse Menu and Packages',
+    subtitle: 'Explore appetizers, grills, curries, desserts, and event packages.',
+    icon: 'book-outline',
+    iconBg: '#ffedd5',
   },
   {
     id: 'book',
-    title: 'Send Your Catering Request',
-    subtitle: 'Share your event details and get started quickly.',
+    title: 'Checkout in Minutes',
+    subtitle: 'Add items, confirm details, and start your catering request quickly.',
+    icon: 'checkmark-done-circle-outline',
+    iconBg: '#dcfce7',
   },
 ];
 
@@ -39,7 +41,7 @@ export default function OnboardingScreen() {
     try {
       await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     } catch (error) {
-      // Keep moving to the app even if storage fails in development.
+      // Keep moving even if storage fails in development.
     }
 
     router.replace('/');
@@ -56,32 +58,27 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.topSection}>
-          <Text style={styles.title}>{currentSlide.title}</Text>
-          <Text style={styles.subtitle}>{currentSlide.subtitle}</Text>
-        </View>
+      <View style={styles.hero}>
+        <Text style={styles.stepText}>Step {currentIndex + 1} of {SLIDES.length}</Text>
+        <Text style={styles.title}>{currentSlide.title}</Text>
+        <Text style={styles.subtitle}>{currentSlide.subtitle}</Text>
+      </View>
 
-        <View style={styles.imageSection}>
-          <View style={styles.imageCard}>
-            <Image
-              source={require('../assets/icons/icon-256.png')}
-              style={styles.image}
-              resizeMode="contain"
-            />
+      <View style={styles.container}>
+        <View style={styles.visualCard}>
+          <View style={[styles.iconCircle, { backgroundColor: currentSlide.iconBg }]}>
+            <Ionicons name={currentSlide.icon} size={72} color={colors.primaryDark} />
           </View>
+          <Text style={styles.visualHeading}>Plan. Customize. Celebrate.</Text>
+          <Text style={styles.visualSubheading}>
+            Built for catering orders with clear menus, curated packages, and fast checkout.
+          </Text>
         </View>
 
         <View style={styles.bottomSection}>
           <View style={styles.dotsRow}>
             {SLIDES.map((slide, index) => (
-              <View
-                key={slide.id}
-                style={[
-                  styles.dot,
-                  index === currentIndex ? styles.dotActive : null,
-                ]}
-              />
+              <View key={slide.id} style={[styles.dot, index === currentIndex ? styles.dotActive : null]} />
             ))}
           </View>
 
@@ -97,9 +94,7 @@ export default function OnboardingScreen() {
               onPress={handleNext}
               style={({ pressed }) => [styles.nextButton, pressed ? styles.pressed : null]}
             >
-              <Text style={styles.nextText}>
-                {isLastSlide ? 'Get Started' : 'Next'}
-              </Text>
+              <Text style={styles.nextText}>{isLastSlide ? 'Get Started' : 'Next'}</Text>
             </Pressable>
           </View>
         </View>
@@ -111,108 +106,128 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bg,
+  },
+  hero: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    backgroundColor: colors.primaryDark,
+  },
+  stepText: {
+    color: '#fecaca',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  title: {
+    marginTop: spacing.sm,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#fff',
+    lineHeight: 34,
+    letterSpacing: -0.4,
+  },
+  subtitle: {
+    marginTop: spacing.sm,
+    fontSize: 15,
+    color: '#fee2e2',
+    lineHeight: 22,
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    justifyContent: 'space-between',
   },
-  topSection: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    textAlign: 'center',
-    lineHeight: 34,
-  },
-  subtitle: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 320,
-  },
-  imageSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageCard: {
-    width: 240,
-    height: 240,
-    borderRadius: 28,
-    backgroundColor: '#fff5f5',
+  visualCard: {
+    borderRadius: radii.xl,
     borderWidth: 1,
     borderColor: '#fecaca',
-    justifyContent: 'center',
+    backgroundColor: '#fff',
+    minHeight: 340,
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
   },
-  image: {
-    width: 150,
-    height: 150,
+  iconCircle: {
+    width: 170,
+    height: 170,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visualHeading: {
+    marginTop: spacing.lg,
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 23,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  visualSubheading: {
+    marginTop: spacing.sm,
+    color: colors.textMuted,
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
   },
   bottomSection: {
-    paddingBottom: 8,
+    gap: spacing.md,
   },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 18,
     gap: 8,
   },
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     backgroundColor: '#d1d5db',
   },
   dotActive: {
     width: 24,
-    backgroundColor: '#b30000',
+    backgroundColor: colors.primary,
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+    gap: spacing.sm,
   },
   skipButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 14,
+    height: 50,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
   },
   skipText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#374151',
   },
   nextButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 14,
+    height: 50,
+    borderRadius: radii.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#b30000',
+    backgroundColor: colors.primary,
   },
   nextText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#fff',
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.76,
     transform: [{ scale: 0.98 }],
   },
 });

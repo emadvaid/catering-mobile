@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { colors, radii, spacing } from '../../lib/theme';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -48,42 +50,51 @@ export default function SignupScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
+      <View style={styles.hero}>
         <Pressable
           onPress={handleBack}
-          style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
+          style={({ pressed }) => [styles.backChip, pressed ? styles.pressed : null]}
         >
-          <Text style={styles.backButtonText}>Back</Text>
+          <Ionicons name="chevron-back" size={16} color="#fff" />
+          <Text style={styles.backChipText}>Back</Text>
         </Pressable>
 
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Create an account to continue checkout.</Text>
+        <Text style={styles.heroTitle}>Create Account</Text>
+        <Text style={styles.heroSubtitle}>Set up your account to continue with checkout.</Text>
+      </View>
 
+      <View style={styles.sheet}>
+        <Text style={styles.label}>Email</Text>
         <TextInput
-          placeholder="Email"
+          placeholder="you@example.com"
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
           value={email}
           onChangeText={setEmail}
           style={styles.input}
+          placeholderTextColor="#9ca3af"
         />
+
+        <Text style={styles.label}>Password</Text>
         <TextInput
-          placeholder="Password"
+          placeholder="Minimum 6 characters"
           secureTextEntry
+          autoCapitalize="none"
           value={password}
           onChangeText={setPassword}
           style={styles.input}
+          placeholderTextColor="#9ca3af"
         />
 
         <Pressable
           onPress={handleSignup}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            pressed ? styles.pressed : null,
-          ]}
+          style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : null]}
           disabled={loading}
         >
-          <Text style={styles.primaryButtonText}>{loading ? 'Please wait...' : 'Create Account'}</Text>
+          <Text style={styles.primaryButtonText}>
+            {loading ? 'Creating account...' : 'Create Account'}
+          </Text>
         </Pressable>
 
         <Link href={`/auth/login?redirect=${encodeURIComponent(nextRoute)}`} style={styles.link}>
@@ -97,60 +108,99 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bg,
   },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    gap: 10,
+  hero: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: 54,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    backgroundColor: colors.primaryDark,
   },
-  backButton: {
+  backChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    marginBottom: 10,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    marginBottom: spacing.lg,
   },
-  backButtonText: {
-    color: '#111827',
+  backChipText: {
+    color: '#fff',
     fontWeight: '600',
+    fontSize: 14,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
+  heroTitle: {
+    color: '#fff',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    color: '#6b7280',
-    marginBottom: 8,
+  heroSubtitle: {
+    marginTop: spacing.sm,
+    color: '#fee2e2',
+    fontSize: 15,
+    lineHeight: 22,
+    maxWidth: 300,
+  },
+  sheet: {
+    marginTop: -30,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    shadowColor: '#111827',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  label: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '600',
+    marginTop: 2,
   },
   input: {
-    height: 48,
+    height: 52,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: colors.text,
+    backgroundColor: colors.surfaceMuted,
   },
   primaryButton: {
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#b30000',
+    marginTop: spacing.sm,
+    height: 52,
+    borderRadius: radii.md,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
     color: '#fff',
     fontWeight: '700',
+    fontSize: 16,
   },
   link: {
-    marginTop: 12,
-    color: '#b30000',
-    fontWeight: '600',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.76,
     transform: [{ scale: 0.98 }],
   },
 });

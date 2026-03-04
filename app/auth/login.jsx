@@ -1,18 +1,28 @@
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { colors, radii, spacing } from '../../lib/theme';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
   const { redirect } = useLocalSearchParams();
-  const { login, loginWithGoogle, loginWithGoogleIdToken } = useAuth();
+  const { login, loginWithGoogleIdToken } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,16 +34,19 @@ export default function LoginScreen() {
     Constants.appOwnership === 'expo' ||
     Constants.executionEnvironment === 'storeClient';
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-    iosClientId:
-      process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
-      process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-    androidClientId:
-      process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
-      process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
+  const authConfig = useMemo(
+    () => ({
+      expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+      iosClientId:
+        process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+        process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    }),
+    []
+  );
+
+  const [request, response, promptAsync] = Google.useAuthRequest(authConfig);
 
   useEffect(() => {
     async function handleGoogleResponse() {
@@ -41,12 +54,13 @@ export default function LoginScreen() {
         return;
       }
 
-      const idToken = response.authentication?.idToken;
+      const idToken =
+        response.authentication?.idToken ||
+        response.params?.id_token ||
+        response.params?.idToken;
+
       if (!idToken) {
-        Alert.alert(
-          'Google Sign-In',
-          'No idToken returned. Check OAuth client IDs in your .env file.'
-        );
+        Alert.alert('Google Sign-In', 'Google did not return an ID token. Please retry.');
         setGoogleLoading(false);
         return;
       }
@@ -85,30 +99,28 @@ export default function LoginScreen() {
     if (isExpoGo) {
       Alert.alert(
         'Google Sign-In Setup',
-        'Google sign-in requires a dev build on this project. Open the development build app, not Expo Go.'
+        'Open the development build app for Google sign-in. Expo Go does not support this flow.'
       );
       return;
     }
 
-    if (request) {
-      setGoogleLoading(true);
-      await promptAsync();
+    if (!request) {
+      Alert.alert('Google Sign-In', 'Google request is not ready. Try again in a moment.');
       return;
     }
 
-    // Web popup fallback
     setGoogleLoading(true);
+
     try {
-      await loginWithGoogle();
-      router.replace(nextRoute);
+      const useProxy = Platform.OS === 'android';
+      const result = await promptAsync(useProxy ? { useProxy: true } : undefined);
+
+      if (result?.type !== 'success') {
+        setGoogleLoading(false);
+      }
     } catch (error) {
-      Alert.alert(
-        'Google Sign-In',
-        error.message ||
-          'For native iOS/Android, configure Expo Auth Session Google client IDs next.'
-      );
-    } finally {
       setGoogleLoading(false);
+      Alert.alert('Google Sign-In', error.message || 'Could not start Google sign-in.');
     }
   }
 
@@ -123,59 +135,66 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
+      <View style={styles.hero}>
         <Pressable
           onPress={handleBack}
-          style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}
+          style={({ pressed }) => [styles.backChip, pressed ? styles.pressed : null]}
         >
-          <Text style={styles.backButtonText}>Back</Text>
+          <Ionicons name="chevron-back" size={16} color="#fff" />
+          <Text style={styles.backChipText}>Back</Text>
         </Pressable>
 
-        <Text style={styles.title}>Sign In</Text>
-        <Text style={styles.subtitle}>Sign in to continue checkout.</Text>
+        <Text style={styles.heroTitle}>Welcome Back</Text>
+        <Text style={styles.heroSubtitle}>Sign in to continue with your catering order.</Text>
+      </View>
 
+      <View style={styles.sheet}>
+        <Text style={styles.label}>Email</Text>
         <TextInput
-          placeholder="Email"
+          placeholder="you@example.com"
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
           value={email}
           onChangeText={setEmail}
           style={styles.input}
+          placeholderTextColor="#9ca3af"
         />
+
+        <Text style={styles.label}>Password</Text>
         <TextInput
-          placeholder="Password"
+          placeholder="Your password"
           secureTextEntry
+          autoCapitalize="none"
           value={password}
           onChangeText={setPassword}
           style={styles.input}
+          placeholderTextColor="#9ca3af"
         />
 
         <Pressable
           onPress={handleLogin}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            pressed ? styles.pressed : null,
-          ]}
+          style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : null]}
           disabled={loading}
         >
-          <Text style={styles.primaryButtonText}>{loading ? 'Please wait...' : 'Sign In'}</Text>
+          <Text style={styles.primaryButtonText}>{loading ? 'Signing in...' : 'Sign In'}</Text>
         </Pressable>
 
         <Pressable
           onPress={handleGoogleLogin}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            pressed ? styles.pressed : null,
-          ]}
+          style={({ pressed }) => [styles.googleButton, pressed ? styles.pressed : null]}
           disabled={loading || googleLoading}
         >
-          <Text style={styles.secondaryButtonText}>
+          <View style={styles.googleIconBubble}>
+            <FontAwesome name="google" size={16} color="#ea4335" />
+          </View>
+          <Text style={styles.googleButtonText}>
             {googleLoading ? 'Connecting Google...' : 'Continue with Google'}
           </Text>
         </Pressable>
 
         <Link href={`/auth/signup?redirect=${encodeURIComponent(nextRoute)}`} style={styles.link}>
-          Create an account
+          No account yet? Create one
         </Link>
       </View>
     </SafeAreaView>
@@ -185,72 +204,124 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bg,
   },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    gap: 10,
+  hero: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: 54,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    backgroundColor: colors.primaryDark,
   },
-  backButton: {
+  backChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    marginBottom: 10,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    marginBottom: spacing.lg,
   },
-  backButtonText: {
-    color: '#111827',
+  backChipText: {
+    color: '#fff',
     fontWeight: '600',
+    fontSize: 14,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
+  heroTitle: {
+    color: '#fff',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    color: '#6b7280',
-    marginBottom: 8,
+  heroSubtitle: {
+    marginTop: spacing.sm,
+    color: '#fee2e2',
+    fontSize: 15,
+    lineHeight: 22,
+    maxWidth: 300,
+  },
+  sheet: {
+    marginTop: -30,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    shadowColor: '#111827',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  label: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '600',
+    marginTop: 2,
   },
   input: {
-    height: 48,
+    height: 52,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: colors.text,
+    backgroundColor: colors.surfaceMuted,
   },
   primaryButton: {
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#b30000',
+    marginTop: spacing.sm,
+    height: 52,
+    borderRadius: radii.md,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
     color: '#fff',
     fontWeight: '700',
+    fontSize: 16,
   },
-  secondaryButton: {
-    height: 46,
-    borderRadius: 10,
+  googleButton: {
+    marginTop: 4,
+    height: 52,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#fff',
+  },
+  googleIconBubble: {
+    width: 26,
+    height: 26,
+    borderRadius: radii.pill,
+    backgroundColor: '#fff5f5',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryButtonText: {
-    color: '#111827',
-    fontWeight: '600',
+  googleButtonText: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 15,
   },
   link: {
-    marginTop: 12,
-    color: '#b30000',
-    fontWeight: '600',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.76,
     transform: [{ scale: 0.98 }],
   },
 });

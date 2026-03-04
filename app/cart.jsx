@@ -4,11 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/navigation/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { colors, radii, spacing } from '../lib/theme';
+
+function resolvePriceValue(item) {
+  const value = Number(item.price);
+  return Number.isFinite(value) ? value : 0;
+}
 
 export default function CartScreen() {
   const { user } = useAuth();
   const { items, removeItem, clearCart } = useCart();
-  const total = items.reduce((sum, item) => sum + item.price, 0);
+
+  const total = items.reduce((sum, item) => sum + resolvePriceValue(item), 0);
 
   function proceedToCheckout() {
     if (!user) {
@@ -21,32 +28,51 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Cart</Text>
-        <Text style={styles.subtitle}>Review items before checkout.</Text>
+        <Text style={styles.subtitle}>Review selected menu items and packages before checkout.</Text>
 
         {items.length === 0 ? (
-          <Text style={styles.empty}>Your cart is empty.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.empty}>Your cart is empty.</Text>
+            <Pressable
+              style={({ pressed }) => [styles.emptyButton, pressed ? styles.pressed : null]}
+              onPress={() => router.push('/menu')}
+            >
+              <Text style={styles.emptyButtonText}>Browse Menu</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={styles.list}>
-            {items.map((item, index) => (
-              <View key={`${item.id}-${index}`} style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemPrice}>${item.price}</Text>
+            {items.map((item, index) => {
+              const priceValue = resolvePriceValue(item);
+
+              return (
+                <View key={`${item.id}-${index}`} style={styles.itemRow}>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemPrice}>
+                      {priceValue > 0
+                        ? `$${priceValue.toFixed(2)}`
+                        : item.priceLabel || 'Contact for pricing'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => removeItem(index)}
+                    style={({ pressed }) => [styles.removeButton, pressed ? styles.pressed : null]}
+                  >
+                    <Text style={styles.removeButtonText}>Remove</Text>
+                  </Pressable>
                 </View>
-                <Pressable
-                  onPress={() => removeItem(index)}
-                  style={({ pressed }) => [styles.removeButton, pressed ? styles.pressed : null]}
-                >
-                  <Text style={styles.removeButtonText}>Remove</Text>
-                </Pressable>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
-        <Text style={styles.total}>Total: ${total}</Text>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Estimated total:</Text>
+          <Text style={styles.totalValue}>{total > 0 ? `$${total.toFixed(2)}` : 'Contact for quote'}</Text>
+        </View>
 
         <Pressable
           style={({ pressed }) => [
@@ -81,77 +107,111 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bg,
   },
   container: {
-    paddingHorizontal: 24,
-    paddingVertical: 24,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 10,
+    fontSize: 30,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    textAlign: 'left',
-    color: '#6b7280',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 14,
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  emptyCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    backgroundColor: '#fff',
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   empty: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 15,
-    marginBottom: 12,
+  },
+  emptyButton: {
+    height: 40,
+    borderRadius: radii.sm,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontWeight: '700',
   },
   list: {
-    gap: 10,
+    gap: spacing.sm,
   },
   itemRow: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 12,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#fff',
   },
   itemInfo: {
     flex: 1,
     paddingRight: 10,
+    gap: 3,
   },
   itemName: {
-    color: '#111827',
+    color: colors.text,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   itemPrice: {
-    color: '#6b7280',
-    marginTop: 4,
+    color: colors.textMuted,
     fontSize: 13,
   },
   removeButton: {
     backgroundColor: '#fee2e2',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: radii.sm,
   },
   removeButtonText: {
-    color: '#b30000',
+    color: colors.primary,
     fontWeight: '700',
     fontSize: 12,
   },
-  total: {
-    fontSize: 18,
+  totalRow: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    backgroundColor: '#fff',
+    padding: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalLabel: {
+    color: colors.text,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
-    marginTop: 16,
-    marginBottom: 12,
+  },
+  totalValue: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '800',
   },
   primaryButton: {
-    backgroundColor: '#b30000',
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     height: 48,
@@ -162,23 +222,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   secondaryButton: {
-    marginTop: 10,
-    borderRadius: 10,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     height: 44,
+    backgroundColor: '#fff',
   },
   secondaryButtonText: {
     color: '#374151',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   disabledButton: {
     opacity: 0.45,
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.76,
     transform: [{ scale: 0.98 }],
   },
 });

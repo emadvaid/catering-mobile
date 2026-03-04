@@ -1,32 +1,172 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
-import { PACKAGES } from '../data/packages';
+import { MENU_CATEGORIES, MENU_ITEMS } from '../data/menuItems';
+import { fetchMenuItems } from '../lib/firebase/contentService';
+import { colors, radii, spacing } from '../lib/theme';
+
+function normalizeRemoteItems(remoteItems, fallback) {
+  return remoteItems.map((item, index) => ({
+    id: item.id || `menu-${index}`,
+    name: item.name || item.title || `Menu Item ${index + 1}`,
+    category: item.category || 'All',
+    description: item.description || 'Contact us for more details.',
+    priceLabel: item.priceLabel || 'Contact for pricing',
+    price: Number.isFinite(item.price) ? item.price : 0,
+    image: fallback[index]?.image || fallback[0]?.image,
+  }));
+}
 
 export default function MenuScreen() {
+  const { category } = useLocalSearchParams();
   const { addItem } = useCart();
+
+  const [activeCategory, setActiveCategory] = useState(
+    typeof category === 'string' && MENU_CATEGORIES.includes(category) ? category : 'All'
+  );
+  const [items, setItems] = useState(MENU_ITEMS);
+  const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState({});
+
+  useEffect(() => {
+    if (typeof category === 'string' && MENU_CATEGORIES.includes(category)) {
+      setActiveCategory(category);
+    }
+  }, [category]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadMenu() {
+      try {
+        const remoteMenu = await fetchMenuItems();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (Array.isArray(remoteMenu) && remoteMenu.length > 0) {
+          setItems(normalizeRemoteItems(remoteMenu, MENU_ITEMS));
+        }
+      } catch (error) {
+        // local fallback stays active
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadMenu();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    if (activeCategory === 'All') {
+      return items;
+    }
+
+    return items.filter((item) => item.category === activeCategory);
+  }, [activeCategory, items]);
+
+  function toggleFavorite(itemId) {
+    setFavorites((prev) => ({
+      ...prev,
+      [itemId]: !prev[itemId],
+    }));
+  }
 
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Menu</Text>
-        <Text style={styles.subtitle}>Tap any package to add it to your cart.</Text>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Our Menu</Text>
 
-        {PACKAGES.map((pkg) => (
-          <View key={pkg.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{pkg.name}</Text>
-            <Text style={styles.cardMeta}>
-              {pkg.guests} • ${pkg.price}
-            </Text>
-            <Pressable
-              style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : null]}
-              onPress={() => addItem(pkg)}
-            >
-              <Text style={styles.addButtonText}>Add</Text>
-            </Pressable>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {MENU_CATEGORIES.map((label) => {
+            const isActive = activeCategory === label;
+
+            return (
+              <Pressable
+                key={label}
+                style={({ pressed }) => [
+                  styles.filterChip,
+                  isActive ? styles.filterChipActive : null,
+                  pressed ? styles.pressed : null,
+                ]}
+                onPress={() => setActiveCategory(label)}
+              >
+                <Text style={[styles.filterText, isActive ? styles.filterTextActive : null]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {loading ? (
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.loaderText}>Loading menu...</Text>
           </View>
-        ))}
+        ) : (
+          <View style={styles.grid}>
+            {filteredItems.map((item) => (
+              <View key={item.id} style={styles.card}>
+                <View>
+                  {item.image ? (
+                    <Image source={item.image} style={styles.image} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.image, styles.imagePlaceholder]} />
+                  )}
+                  <Pressable
+                    style={({ pressed }) => [styles.favoriteBtn, pressed ? styles.pressed : null]}
+                    onPress={() => toggleFavorite(item.id)}
+                  >
+                    <Ionicons
+                      name={favorites[item.id] ? 'heart' : 'heart-outline'}
+                      size={18}
+                      color={favorites[item.id] ? '#ef4444' : '#6b7280'}
+                    />
+                  </Pressable>
+                </View>
+
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardDesc}>{item.description}</Text>
+                  <Text style={styles.cardPrice}>{item.priceLabel || 'Contact for pricing'}</Text>
+
+                  <Pressable
+                    style={({ pressed }) => [styles.addBtn, pressed ? styles.pressed : null]}
+                    onPress={() =>
+                      addItem({
+                        id: item.id,
+                        name: item.name,
+                        price: Number.isFinite(item.price) ? item.price : 0,
+                        priceLabel: item.priceLabel || 'Contact for pricing',
+                        type: 'menu',
+                      })
+                    }
+                  >
+                    <Text style={styles.addBtnText}>Add to Cart</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       <BottomNav activeRoute="/menu" />
@@ -37,58 +177,122 @@ export default function MenuScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bg,
   },
   container: {
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    gap: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    gap: spacing.md,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 10,
+    fontSize: 30,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    textAlign: 'left',
-    color: '#6b7280',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 8,
+  filterRow: {
+    gap: spacing.sm,
+    paddingVertical: 2,
+  },
+  filterChip: {
+    height: 36,
+    borderRadius: radii.pill,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterText: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  filterTextActive: {
+    color: '#fff',
+  },
+  loaderWrap: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loaderText: {
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
+  grid: {
+    gap: spacing.md,
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
+    borderRadius: radii.lg,
     backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: 180,
+  },
+  imagePlaceholder: {
+    backgroundColor: '#e5e7eb',
+  },
+  favoriteBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: radii.pill,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  cardBody: {
+    padding: spacing.md,
     gap: 8,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 19,
   },
-  cardMeta: {
-    color: '#4b5563',
-    fontSize: 14,
-  },
-  addButton: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
-    backgroundColor: '#b30000',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  cardDesc: {
+    color: '#374151',
     fontSize: 13,
+    lineHeight: 18,
+  },
+  cardPrice: {
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    fontSize: 15,
+  },
+  addBtn: {
+    marginTop: 4,
+    height: 42,
+    borderRadius: radii.sm,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.78,
     transform: [{ scale: 0.98 }],
   },
 });
