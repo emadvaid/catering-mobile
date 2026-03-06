@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   navItemPressed: {
-    opacity: 0.72,
-    transform: [{ scale: 0.96 }],
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
   },
 });

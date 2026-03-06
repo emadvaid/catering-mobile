@@ -110,7 +110,16 @@ export default function ProfileScreen() {
   }
 
   async function handleLogout() {
-    await logout();
+    Alert.alert('Sign Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+        },
+      },
+    ]);
   }
 
   return (
@@ -370,7 +379,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
   },
 });

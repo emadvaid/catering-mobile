@@ -24,6 +24,27 @@ function formatList(items) {
   return items;
 }
 
+function mergePackagesWithFallback(remotePackages, fallback) {
+  const normalizedRemote = remotePackages.map((pkg, index) => ({
+    id: pkg.id || `pkg-${index}`,
+    order: pkg.order || index + 1,
+    name: pkg.name || `Package ${index + 1}`,
+    badge: pkg.badge || 'Large events',
+    guests: pkg.guests || '200+ ppl',
+    appetizers: formatList(pkg.appetizers),
+    mains: formatList(pkg.mains),
+    regularDessert: formatList(pkg.regularDessert),
+    premiumDessert: formatList(pkg.premiumDessert),
+  }));
+
+  const existingNames = new Set(normalizedRemote.map((pkg) => (pkg.name || '').toLowerCase()));
+  const missingFallback = fallback.filter(
+    (pkg) => !existingNames.has((pkg.name || '').toLowerCase())
+  );
+
+  return [...normalizedRemote, ...missingFallback];
+}
+
 export default function PackagesScreen() {
   const { addItem } = useCart();
 
@@ -43,19 +64,7 @@ export default function PackagesScreen() {
         }
 
         if (Array.isArray(remotePackages) && remotePackages.length > 0) {
-          setCards(
-            remotePackages.map((pkg, index) => ({
-              id: pkg.id || `pkg-${index}`,
-              order: pkg.order || index + 1,
-              name: pkg.name || `Package ${index + 1}`,
-              badge: pkg.badge || 'Large events',
-              guests: pkg.guests || '200+ ppl',
-              appetizers: formatList(pkg.appetizers),
-              mains: formatList(pkg.mains),
-              regularDessert: formatList(pkg.regularDessert),
-              premiumDessert: formatList(pkg.premiumDessert),
-            }))
-          );
+          setCards((prev) => mergePackagesWithFallback(remotePackages, prev));
         }
       } catch (error) {
         // local fallback stays active
@@ -378,7 +387,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   pressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
   },
 });

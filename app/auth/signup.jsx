@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
   },
 });

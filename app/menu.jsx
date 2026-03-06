@@ -8,25 +8,76 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
-import { MENU_CATEGORIES, MENU_ITEMS } from '../data/menuItems';
+import {
+  MENU_CATEGORIES,
+  MENU_ITEMS,
+  resolveMenuImage,
+  resolveMenuImageKey,
+} from '../data/menuItems';
 import { fetchMenuItems } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
 
+const FAVORITES_KEY = 'menuFavoriteIds';
+
 function normalizeRemoteItems(remoteItems, fallback) {
-  return remoteItems.map((item, index) => ({
-    id: item.id || `menu-${index}`,
-    name: item.name || item.title || `Menu Item ${index + 1}`,
-    category: item.category || 'All',
-    description: item.description || 'Contact us for more details.',
-    priceLabel: item.priceLabel || 'Contact for pricing',
-    price: Number.isFinite(item.price) ? item.price : 0,
-    image: fallback[index]?.image || fallback[0]?.image,
-  }));
+  return remoteItems.map((item, index) => {
+    const itemName = item.name || item.title || `Menu Item ${index + 1}`;
+    const mappedImageKey = resolveMenuImageKey({
+      imageKey: item.imageKey || null,
+      name: itemName,
+      legacyImagePath: item.image || item.imagePath || '',
+    });
+
+    const fallbackImage =
+      typeof fallback[index]?.image === 'number'
+        ? fallback[index].image
+        : typeof fallback[0]?.image === 'number'
+          ? fallback[0].image
+          : MENU_ITEMS[0]?.image;
+
+    return {
+      id: item.id || `menu-${index}`,
+      name: itemName,
+      imageKey: mappedImageKey,
+      category: item.category || 'All',
+      description: item.description || 'Contact us for more details.',
+      priceLabel: item.priceLabel || 'Contact for pricing',
+      price: Number.isFinite(item.price) ? item.price : 0,
+      image: resolveMenuImage(
+        mappedImageKey,
+        itemName,
+        fallbackImage
+      ),
+    };
+  });
+}
+
+function getMenuImageSource(item) {
+  if (typeof item.image === 'number') {
+    return item.image;
+  }
+
+  return resolveMenuImage(item.imageKey || null, item.name || '', MENU_ITEMS[0]?.image);
+}
+
+function mergeMenuWithFallback(remoteItems, fallback) {
+  const normalizedRemote = normalizeRemoteItems(remoteItems, fallback);
+  const existingKeys = new Set(
+    normalizedRemote.map((item) => (item.imageKey || item.name || '').toLowerCase())
+  );
+
+  const missingFallback = fallback.filter((item) => {
+    const key = (item.imageKey || item.name || '').toLowerCase();
+    return !existingKeys.has(key);
+  });
+
+  return [...normalizedRemote, ...missingFallback];
 }
 
 export default function MenuScreen() {
@@ -49,6 +100,48 @@ export default function MenuScreen() {
   useEffect(() => {
     let isMounted = true;
 
+    async function loadFavorites() {
+      try {
+        const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+        const ids = raw ? JSON.parse(raw) : [];
+        if (!isMounted || !Array.isArray(ids)) {
+          return;
+        }
+
+        const mapped = ids.reduce((acc, id) => {
+          acc[id] = true;
+          return acc;
+        }, {});
+
+        setFavorites(mapped);
+      } catch (error) {
+        // ignore persistence errors in dev
+      }
+    }
+
+    loadFavorites();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    async function persistFavorites() {
+      try {
+        const ids = Object.keys(favorites).filter((id) => favorites[id]);
+        await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(ids));
+      } catch (error) {
+        // ignore persistence errors in dev
+      }
+    }
+
+    persistFavorites();
+  }, [favorites]);
+
+  useEffect(() => {
+    let isMounted = true;
+
     async function loadMenu() {
       try {
         const remoteMenu = await fetchMenuItems();
@@ -58,7 +151,7 @@ export default function MenuScreen() {
         }
 
         if (Array.isArray(remoteMenu) && remoteMenu.length > 0) {
-          setItems(normalizeRemoteItems(remoteMenu, MENU_ITEMS));
+          setItems(mergeMenuWithFallback(remoteMenu, MENU_ITEMS));
         }
       } catch (error) {
         // local fallback stays active
@@ -123,14 +216,17 @@ export default function MenuScreen() {
           </View>
         ) : (
           <View style={styles.grid}>
-            {filteredItems.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <View>
-                  {item.image ? (
-                    <Image source={item.image} style={styles.image} resizeMode="cover" />
-                  ) : (
-                    <View style={[styles.image, styles.imagePlaceholder]} />
-                  )}
+            {filteredItems.map((item) => {
+              const imageSource = getMenuImageSource(item);
+
+              return (
+                <View key={item.id} style={styles.card}>
+                  <View>
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.image} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.image, styles.imagePlaceholder]} />
+                    )}
                   <Pressable
                     style={({ pressed }) => [styles.favoriteBtn, pressed ? styles.pressed : null]}
                     onPress={() => toggleFavorite(item.id)}
@@ -141,30 +237,31 @@ export default function MenuScreen() {
                       color={favorites[item.id] ? '#ef4444' : '#6b7280'}
                     />
                   </Pressable>
-                </View>
+                  </View>
 
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
-                  <Text style={styles.cardDesc}>{item.description}</Text>
-                  <Text style={styles.cardPrice}>{item.priceLabel || 'Contact for pricing'}</Text>
+                  <View style={styles.cardBody}>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <Text style={styles.cardDesc}>{item.description}</Text>
+                    <Text style={styles.cardPrice}>{item.priceLabel || 'Contact for pricing'}</Text>
 
-                  <Pressable
-                    style={({ pressed }) => [styles.addBtn, pressed ? styles.pressed : null]}
-                    onPress={() =>
-                      addItem({
-                        id: item.id,
-                        name: item.name,
-                        price: Number.isFinite(item.price) ? item.price : 0,
-                        priceLabel: item.priceLabel || 'Contact for pricing',
-                        type: 'menu',
-                      })
-                    }
-                  >
-                    <Text style={styles.addBtnText}>Add to Cart</Text>
-                  </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [styles.addBtn, pressed ? styles.pressed : null]}
+                      onPress={() =>
+                        addItem({
+                          id: item.id,
+                          name: item.name,
+                          price: Number.isFinite(item.price) ? item.price : 0,
+                          priceLabel: item.priceLabel || 'Contact for pricing',
+                          type: 'menu',
+                        })
+                      }
+                    >
+                      <Text style={styles.addBtnText}>Add to Cart</Text>
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -292,7 +389,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   pressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
   },
 });

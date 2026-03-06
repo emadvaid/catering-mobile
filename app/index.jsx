@@ -6,7 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
-import { MENU_CATEGORIES, MENU_ITEMS } from '../data/menuItems';
+import {
+  MENU_CATEGORIES,
+  MENU_ITEMS,
+  resolveMenuImage,
+  resolveMenuImageKey,
+} from '../data/menuItems';
 import { PACKAGE_CARDS } from '../data/packages';
 import { fetchMenuItems, fetchPackages } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
@@ -46,6 +51,79 @@ function toCartItem(item) {
   };
 }
 
+function mergeMenuWithFallback(remoteItems, fallback) {
+  const normalizedRemote = remoteItems.map((item, index) => {
+    const itemName = item.name || item.title || `Menu Item ${index + 1}`;
+    const mappedImageKey = resolveMenuImageKey({
+      imageKey: item.imageKey || null,
+      name: itemName,
+      legacyImagePath: item.image || item.imagePath || '',
+    });
+
+    const fallbackImage =
+      typeof fallback[index]?.image === 'number'
+        ? fallback[index].image
+        : typeof fallback[0]?.image === 'number'
+          ? fallback[0].image
+          : MENU_ITEMS[0]?.image;
+
+    return {
+      id: item.id || `menu-${index}`,
+      name: itemName,
+      imageKey: mappedImageKey,
+      category: item.category || 'All',
+      description: item.description || 'Contact us for more details.',
+      priceLabel: item.priceLabel || 'Contact for pricing',
+      price: Number.isFinite(item.price) ? item.price : 0,
+      image: resolveMenuImage(
+        mappedImageKey,
+        itemName,
+        fallbackImage
+      ),
+    };
+  });
+
+  const existingKeys = new Set(
+    normalizedRemote.map((item) => (item.imageKey || item.name || '').toLowerCase())
+  );
+
+  const missingFallback = fallback.filter((item) => {
+    const key = (item.imageKey || item.name || '').toLowerCase();
+    return !existingKeys.has(key);
+  });
+
+  return [...normalizedRemote, ...missingFallback];
+}
+
+function getMenuImageSource(item) {
+  if (typeof item.image === 'number') {
+    return item.image;
+  }
+
+  return resolveMenuImage(item.imageKey || null, item.name || '', MENU_ITEMS[0]?.image);
+}
+
+function mergePackagesWithFallback(remotePackages, fallback) {
+  const normalizedRemote = remotePackages.map((pkg, index) => ({
+    id: pkg.id || `pkg-${index}`,
+    order: pkg.order || index + 1,
+    name: pkg.name || `Package ${index + 1}`,
+    badge: pkg.badge || 'Large events',
+    guests: pkg.guests || '200+ ppl',
+    appetizers: Array.isArray(pkg.appetizers) ? pkg.appetizers : [],
+    mains: Array.isArray(pkg.mains) ? pkg.mains : [],
+    regularDessert: Array.isArray(pkg.regularDessert) ? pkg.regularDessert : [],
+    premiumDessert: Array.isArray(pkg.premiumDessert) ? pkg.premiumDessert : [],
+  }));
+
+  const existingNames = new Set(normalizedRemote.map((pkg) => (pkg.name || '').toLowerCase()));
+  const missingFallback = fallback.filter(
+    (pkg) => !existingNames.has((pkg.name || '').toLowerCase())
+  );
+
+  return [...normalizedRemote, ...missingFallback];
+}
+
 export default function HomeScreen() {
   const { addItem, itemCount } = useCart();
 
@@ -68,33 +146,11 @@ export default function HomeScreen() {
         }
 
         if (Array.isArray(remoteMenu) && remoteMenu.length > 0) {
-          setMenuItems((prev) =>
-            remoteMenu.map((item, index) => ({
-              id: item.id || `menu-${index}`,
-              name: item.name || item.title || `Menu Item ${index + 1}`,
-              category: item.category || 'All',
-              description: item.description || 'Contact us for more details.',
-              priceLabel: item.priceLabel || 'Contact for pricing',
-              price: Number.isFinite(item.price) ? item.price : 0,
-              image: prev[index]?.image || prev[0]?.image,
-            }))
-          );
+          setMenuItems((prev) => mergeMenuWithFallback(remoteMenu, prev));
         }
 
         if (Array.isArray(remotePackages) && remotePackages.length > 0) {
-          setPackageCards(
-            remotePackages.map((pkg, index) => ({
-              id: pkg.id || `pkg-${index}`,
-              order: pkg.order || index + 1,
-              name: pkg.name || `Package ${index + 1}`,
-              badge: pkg.badge || 'Large events',
-              guests: pkg.guests || '200+ ppl',
-              appetizers: Array.isArray(pkg.appetizers) ? pkg.appetizers : [],
-              mains: Array.isArray(pkg.mains) ? pkg.mains : [],
-              regularDessert: Array.isArray(pkg.regularDessert) ? pkg.regularDessert : [],
-              premiumDessert: Array.isArray(pkg.premiumDessert) ? pkg.premiumDessert : [],
-            }))
-          );
+          setPackageCards((prev) => mergePackagesWithFallback(remotePackages, prev));
         }
       } catch (error) {
         // local fallback remains in place
@@ -183,25 +239,29 @@ export default function HomeScreen() {
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <View style={styles.specialtyGrid}>
-              {featuredItems.map((item) => (
-                <View key={item.id} style={styles.specialtyCard}>
-                  {item.image ? (
-                    <Image source={item.image} style={styles.specialtyImage} resizeMode="cover" />
-                  ) : (
-                    <View style={[styles.specialtyImage, styles.specialtyImagePlaceholder]} />
-                  )}
-                  <View style={styles.specialtyBody}>
-                    <Text style={styles.specialtyName}>{item.name}</Text>
-                    <Pressable
-                      style={({ pressed }) => [styles.inlineAddButton, pressed ? styles.pressed : null]}
-                      onPress={() => addItem(toCartItem(item))}
-                    >
-                      <Ionicons name="add-circle-outline" size={16} color="#fff" />
-                      <Text style={styles.inlineAddText}>Add</Text>
-                    </Pressable>
+              {featuredItems.map((item) => {
+                const imageSource = getMenuImageSource(item);
+
+                return (
+                  <View key={item.id} style={styles.specialtyCard}>
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.specialtyImage} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.specialtyImage, styles.specialtyImagePlaceholder]} />
+                    )}
+                    <View style={styles.specialtyBody}>
+                      <Text style={styles.specialtyName}>{item.name}</Text>
+                      <Pressable
+                        style={({ pressed }) => [styles.inlineAddButton, pressed ? styles.pressed : null]}
+                        onPress={() => addItem(toCartItem(item))}
+                      >
+                        <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                        <Text style={styles.inlineAddText}>Add</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -532,7 +592,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   pressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
   },
 });

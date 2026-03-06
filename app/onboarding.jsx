@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,8 +34,60 @@ const SLIDES = [
 
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
   const currentSlide = SLIDES[currentIndex];
   const isLastSlide = currentIndex === SLIDES.length - 1;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 8,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [currentIndex, fadeAnim, slideAnim]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
 
   async function finishOnboarding() {
     try {
@@ -65,15 +117,28 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.container}>
-        <View style={styles.visualCard}>
-          <View style={[styles.iconCircle, { backgroundColor: currentSlide.iconBg }]}>
+        <Animated.View
+          style={[
+            styles.visualCard,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.iconCircle,
+              { backgroundColor: currentSlide.iconBg, transform: [{ scale: pulseAnim }] },
+            ]}
+          >
             <Ionicons name={currentSlide.icon} size={72} color={colors.primaryDark} />
-          </View>
+          </Animated.View>
           <Text style={styles.visualHeading}>Plan. Customize. Celebrate.</Text>
           <Text style={styles.visualSubheading}>
             Built for catering orders with clear menus, curated packages, and fast checkout.
           </Text>
-        </View>
+        </Animated.View>
 
         <View style={styles.bottomSection}>
           <View style={styles.dotsRow}>
@@ -227,7 +292,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
   },
 });
