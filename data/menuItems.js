@@ -9,22 +9,22 @@ export const MENU_CATEGORIES = [
 ];
 
 export const MENU_IMAGE_MAP = {
-  chicken_biryani: require('../assets/menu/Chicken Biryani.jpg'),
-  beef_biryani: require('../assets/menu/Beef Biryani.jpg'),
-  mutton_karhai: require('../assets/menu/Mutton Karhai.jpg'),
-  chicken_karhai: require('../assets/menu/Chicken Karhai.jpg'),
-  beef_nihari: require('../assets/menu/Beef Nihari.jpg'),
-  chicken_seekh_kabab: require('../assets/menu/Chicken Seekh Kabab.jpg'),
-  beef_seekh_kabab: require('../assets/menu/Beef Seekh Kabab.jpg'),
-  chicken_tikka: require('../assets/menu/Chicken Tikka.jpg'),
-  paneer_tikka: require('../assets/menu/Paneer Tikka.jpg'),
-  aloo_paratha: require('../assets/menu/Samosa.jpg'),
-  samosa: require('../assets/menu/Samosa.jpg'),
-  spring_rolls: require('../assets/menu/Spring Rolls.jpg'),
-  pani_puri_shots: require('../assets/menu/Pani Puri Shots.png'),
-  chicken_65: require('../assets/menu/Chicken 65.jpg'),
-  gulab_jamun: require('../assets/menu/Gulab Jamun.jpg'),
-  gajar_halwa: require('../assets/menu/Gajar Halwa.jpg'),
+  chicken_biryani: require('../assets/menu_optimized/chicken_biryani.jpg'),
+  beef_biryani: require('../assets/menu_optimized/beef_biryani.jpg'),
+  mutton_karhai: require('../assets/menu_optimized/mutton_karhai.jpg'),
+  chicken_karhai: require('../assets/menu_optimized/chicken_karhai.jpg'),
+  beef_nihari: require('../assets/menu_optimized/beef_nihari.jpg'),
+  chicken_seekh_kabab: require('../assets/menu_optimized/chicken_seekh_kabab.jpg'),
+  beef_seekh_kabab: require('../assets/menu_optimized/beef_seekh_kabab.jpg'),
+  chicken_tikka: require('../assets/menu_optimized/chicken_tikka.jpg'),
+  paneer_tikka: require('../assets/menu_optimized/paneer_tikka.jpg'),
+  aloo_paratha: require('../assets/menu_optimized/aloo_paratha.jpg'),
+  samosa: require('../assets/menu_optimized/samosa.jpg'),
+  spring_rolls: require('../assets/menu_optimized/spring_rolls.jpg'),
+  pani_puri_shots: require('../assets/menu_optimized/pani_puri_shots.png'),
+  chicken_65: require('../assets/menu_optimized/chicken_65.jpg'),
+  gulab_jamun: require('../assets/menu_optimized/gulab_jamun.jpg'),
+  gajar_halwa: require('../assets/menu_optimized/gajar_halwa.jpg'),
 };
 
 export const MENU_ITEMS = [
@@ -197,13 +197,22 @@ const IMAGE_KEY_BY_LEGACY_FILE = {
   'gajar halwa.jpg': 'gajar_halwa',
 };
 
+function normalizeImageKey(value) {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+
+  return value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
 export function resolveMenuImageKey({ imageKey, name, legacyImagePath }) {
-  if (imageKey && MENU_IMAGE_MAP[imageKey]) {
-    return imageKey;
+  const normalizedImageKey = normalizeImageKey(imageKey);
+  if (normalizedImageKey && MENU_IMAGE_MAP[normalizedImageKey]) {
+    return normalizedImageKey;
   }
 
   if (name) {
-    const fromName = IMAGE_KEY_BY_NAME[name.toLowerCase()];
+    const fromName = IMAGE_KEY_BY_NAME[name.trim().toLowerCase()];
     if (fromName && MENU_IMAGE_MAP[fromName]) {
       return fromName;
     }
@@ -222,11 +231,12 @@ export function resolveMenuImageKey({ imageKey, name, legacyImagePath }) {
 }
 
 export function resolveMenuImage(imageKey, name, fallbackImage) {
-  if (imageKey && MENU_IMAGE_MAP[imageKey]) {
-    return MENU_IMAGE_MAP[imageKey];
+  const normalizedImageKey = normalizeImageKey(imageKey);
+  if (normalizedImageKey && MENU_IMAGE_MAP[normalizedImageKey]) {
+    return MENU_IMAGE_MAP[normalizedImageKey];
   }
 
-  const fromName = name ? IMAGE_KEY_BY_NAME[name.toLowerCase()] : null;
+  const fromName = name ? IMAGE_KEY_BY_NAME[name.trim().toLowerCase()] : null;
   if (fromName && MENU_IMAGE_MAP[fromName]) {
     return MENU_IMAGE_MAP[fromName];
   }
