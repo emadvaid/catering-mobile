@@ -184,8 +184,29 @@ exports.sendOrderEmailToAdmin = onDocumentCreated(
       html: buildEmailHtml({ orderId, order }),
     });
 
+    await admin.firestore().doc(`orders/${orderId}`).set(
+      {
+        emailDelivery: {
+          status: 'sent',
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+
     logger.info('Order email sent', { orderId, to: adminOrderEmail });
   } catch (error) {
+    await admin.firestore().doc(`orders/${orderId}`).set(
+      {
+        emailDelivery: {
+          status: 'failed',
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: error?.message || String(error),
+        },
+      },
+      { merge: true }
+    );
+
     logger.error('Failed to send order email', { orderId, error: error?.message || error });
   }
   }
