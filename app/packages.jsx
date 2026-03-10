@@ -5,14 +5,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
-import { CUSTOMIZABLE_PACKAGE, PACKAGE_CARDS } from '../data/packages';
+import { PACKAGE_CARDS } from '../data/packages';
 import { fetchPackages } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
 
@@ -48,7 +46,6 @@ function mergePackagesWithFallback(remotePackages, fallback) {
 export default function PackagesScreen() {
   const { addItem } = useCart();
 
-  const [guestCount, setGuestCount] = useState('');
   const [cards, setCards] = useState(PACKAGE_CARDS);
   const [loading, setLoading] = useState(true);
 
@@ -92,55 +89,8 @@ export default function PackagesScreen() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Catering Packages</Text>
         <Text style={styles.subtitle}>
-          Curated spreads for large events, plus a custom package builder.
+          Curated spreads for large events.
         </Text>
-
-        <View style={styles.customCard}>
-          <View style={styles.customHeader}>
-            <Text style={styles.customTitle}>{CUSTOMIZABLE_PACKAGE.name}</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{CUSTOMIZABLE_PACKAGE.badge}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.customSubtitle}>{CUSTOMIZABLE_PACKAGE.subtitle}</Text>
-
-          <Text style={styles.inputLabel}>Number of Guests</Text>
-          <TextInput
-            placeholder="e.g. 150"
-            keyboardType="number-pad"
-            value={guestCount}
-            onChangeText={setGuestCount}
-            style={styles.input}
-            placeholderTextColor="#9ca3af"
-          />
-
-          <View style={styles.actionRow}>
-            <Pressable
-              onPress={() => router.push('/menu')}
-              style={({ pressed }) => [styles.secondaryBtn, pressed ? styles.pressed : null]}
-            >
-              <Text style={styles.secondaryBtnText}>Add Items from Menu</Text>
-            </Pressable>
-            <Pressable
-              onPress={() =>
-                addItem({
-                  id: CUSTOMIZABLE_PACKAGE.id,
-                  name:
-                    guestCount.trim().length > 0
-                      ? `${CUSTOMIZABLE_PACKAGE.name} (${guestCount} guests)`
-                      : CUSTOMIZABLE_PACKAGE.name,
-                  price: 0,
-                  priceLabel: 'Custom quote',
-                  type: 'package',
-                })
-              }
-              style={({ pressed }) => [styles.primaryBtn, pressed ? styles.pressed : null]}
-            >
-              <Text style={styles.primaryBtnText}>Add Custom Package</Text>
-            </Pressable>
-          </View>
-        </View>
 
         {loading ? (
           <View style={styles.loaderWrap}>
@@ -246,28 +196,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  customCard: {
-    backgroundColor: '#fff',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  customHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  customTitle: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  customSubtitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
   badge: {
     backgroundColor: '#fee2e2',
     borderRadius: radii.pill,
@@ -277,45 +205,6 @@ const styles = StyleSheet.create({
   badgeText: {
     color: colors.primary,
     fontSize: 12,
-    fontWeight: '700',
-  },
-  inputLabel: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  input: {
-    height: 46,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 12,
-    color: colors.text,
-    backgroundColor: '#fafafa',
-  },
-  actionRow: {
-    gap: spacing.sm,
-  },
-  secondaryBtn: {
-    height: 44,
-    borderRadius: radii.sm,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  primaryBtn: {
-    height: 44,
-    borderRadius: radii.sm,
-    backgroundColor: '#16a34a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {
-    color: '#fff',
     fontWeight: '700',
   },
   loaderWrap: {

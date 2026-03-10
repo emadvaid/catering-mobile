@@ -16,6 +16,7 @@ import BottomNav from '../components/navigation/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { createOrder } from '../lib/firebase/orders';
+import { getUserProfile } from '../lib/firebase/userProfiles';
 import { colors, radii, spacing } from '../lib/theme';
 
 function resolvePriceValue(item) {
@@ -59,6 +60,7 @@ export default function CheckoutScreen() {
     setPlacingOrder(true);
 
     try {
+      const profile = await getUserProfile(user.uid);
       const orderId = await createOrder({
         userId: user.uid,
         userEmail: user.email || '',
@@ -67,6 +69,15 @@ export default function CheckoutScreen() {
         eventDate: eventDate.trim(),
         guestCount: guestCount.trim(),
         notes: notes.trim(),
+        userDetails: {
+          fullName: profile?.fullName || user.displayName || '',
+          phone: profile?.phone || '',
+          addressLine1: profile?.addressLine1 || '',
+          addressLine2: profile?.addressLine2 || '',
+          city: profile?.city || '',
+          state: profile?.state || '',
+          zipCode: profile?.zipCode || '',
+        },
       });
 
       clearCart();
