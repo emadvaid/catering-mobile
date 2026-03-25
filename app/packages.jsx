@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,10 +14,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
 import { CUSTOMIZABLE_PACKAGE, PACKAGE_CARDS } from '../data/packages';
+import { MENU_ITEMS, resolveMenuImage, resolveMenuImageKey } from '../data/menuItems';
 import { fetchPackages } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
 
 const SHOW_CUSTOM_PACKAGE = false;
+const PACKAGE_HEADER_IMAGES = {
+  'pkg-a': require('../assets/cards-header/card-1.jpg'),
+  'pkg-b': require('../assets/cards-header/card-2.jpg'),
+  'pkg-c': require('../assets/cards-header/card-3.jpg'),
+  'pkg-d': require('../assets/cards-header/card-4.jpg'),
+};
 
 function formatList(items) {
   if (!Array.isArray(items) || items.length === 0) {
@@ -37,6 +45,8 @@ function mergePackagesWithFallback(remotePackages, fallback) {
     mains: formatList(pkg.mains),
     regularDessert: formatList(pkg.regularDessert),
     premiumDessert: formatList(pkg.premiumDessert),
+    imageKey: pkg.imageKey || null,
+    imagePath: pkg.imagePath || pkg.image || null,
   }));
 
   // Avoid duplicate package cards from Firestore with same package name.
@@ -57,6 +67,33 @@ function mergePackagesWithFallback(remotePackages, fallback) {
   );
 
   return [...dedupedRemote, ...missingFallback];
+}
+
+function pickHighlightDish(pkg) {
+  const firstMain = Array.isArray(pkg.mains) && pkg.mains.length > 0 ? pkg.mains[0] : '';
+  const firstAppetizer =
+    Array.isArray(pkg.appetizers) && pkg.appetizers.length > 0 ? pkg.appetizers[0] : '';
+  return firstMain || firstAppetizer || pkg.name;
+}
+
+function getPackageImageSource(pkg) {
+  const directMatch = PACKAGE_HEADER_IMAGES[pkg.id];
+  if (directMatch) {
+    return directMatch;
+  }
+
+  const fromOrder = PACKAGE_HEADER_IMAGES[`pkg-${String.fromCharCode(96 + Number(pkg.order || 0))}`];
+  if (fromOrder) {
+    return fromOrder;
+  }
+
+  const highlight = pickHighlightDish(pkg);
+  const imageKey = resolveMenuImageKey({
+    imageKey: pkg.imageKey || null,
+    name: highlight,
+    legacyImagePath: pkg.imagePath || '',
+  });
+  return resolveMenuImage(imageKey, highlight, MENU_ITEMS[0]?.image);
 }
 
 export default function PackagesScreen() {
@@ -166,6 +203,15 @@ export default function PackagesScreen() {
         ) : (
           sortedCards.map((pkg) => (
             <View key={pkg.id} style={styles.packageCard}>
+              <View style={styles.heroWrap}>
+                <Image source={getPackageImageSource(pkg)} style={styles.heroImage} resizeMode="cover" />
+                <View style={styles.heroOverlay} />
+                <View style={styles.heroContent}>
+                  <Text style={styles.heroKicker}>Curated Spread</Text>
+                  <Text style={styles.heroDish}>{pickHighlightDish(pkg)}</Text>
+                </View>
+              </View>
+
               <View style={styles.packageHeader}>
                 <View>
                   <Text style={styles.packageName}>{pkg.name}</Text>
@@ -353,7 +399,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
+    overflow: 'hidden',
     gap: spacing.sm,
+  },
+  heroWrap: {
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.lg,
+    marginBottom: spacing.sm,
+    height: 130,
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(17,24,39,0.35)',
+  },
+  heroContent: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    gap: 2,
+  },
+  heroKicker: {
+    color: '#fecaca',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  heroDish: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '800',
   },
   packageHeader: {
     flexDirection: 'row',
