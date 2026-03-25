@@ -21,16 +21,22 @@ function buildEmailHtml({ orderId, order = {} }) {
     .map((item, idx) => {
       const name = item?.name || 'Unnamed item';
       const type = item?.type || 'menu';
+      const quantity = Number.isFinite(Number(item?.quantity)) ? Math.max(1, Number(item.quantity)) : 1;
       const priceLabel = item?.priceLabel || 'Contact for pricing';
       const price = Number.isFinite(Number(item?.price)) ? `$${Number(item.price).toFixed(2)}` : 'N/A';
+      const lineTotal = Number.isFinite(Number(item?.price))
+        ? `$${(Number(item.price) * quantity).toFixed(2)}`
+        : 'N/A';
 
       return `
         <tr>
           <td style="padding:8px;border:1px solid #e5e7eb;">${idx + 1}</td>
           <td style="padding:8px;border:1px solid #e5e7eb;">${name}</td>
           <td style="padding:8px;border:1px solid #e5e7eb;">${type}</td>
+          <td style="padding:8px;border:1px solid #e5e7eb;">${quantity}</td>
           <td style="padding:8px;border:1px solid #e5e7eb;">${priceLabel}</td>
           <td style="padding:8px;border:1px solid #e5e7eb;">${price}</td>
+          <td style="padding:8px;border:1px solid #e5e7eb;">${lineTotal}</td>
         </tr>
       `;
     })
@@ -64,12 +70,14 @@ function buildEmailHtml({ orderId, order = {} }) {
                 <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">#</th>
                 <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Item</th>
                 <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Type</th>
+                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Qty</th>
                 <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Price Label</th>
                 <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Price</th>
+                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Line Total</th>
               </tr>
             </thead>
             <tbody>
-              ${rows || '<tr><td colspan="5" style="padding:8px;border:1px solid #e5e7eb;">No items found.</td></tr>'}
+              ${rows || '<tr><td colspan="7" style="padding:8px;border:1px solid #e5e7eb;">No items found.</td></tr>'}
             </tbody>
           </table>
 
@@ -96,9 +104,13 @@ function buildEmailText({ orderId, order = {} }) {
     .map((item, idx) => {
       const name = item?.name || 'Unnamed item';
       const type = item?.type || 'menu';
+      const quantity = Number.isFinite(Number(item?.quantity)) ? Math.max(1, Number(item.quantity)) : 1;
       const priceLabel = item?.priceLabel || 'Contact for pricing';
       const price = Number.isFinite(Number(item?.price)) ? `$${Number(item.price).toFixed(2)}` : 'N/A';
-      return `${idx + 1}. ${name} (${type}) | ${priceLabel} | ${price}`;
+      const lineTotal = Number.isFinite(Number(item?.price))
+        ? `$${(Number(item.price) * quantity).toFixed(2)}`
+        : 'N/A';
+      return `${idx + 1}. ${name} (${type}) | qty ${quantity} | ${priceLabel} | unit ${price} | line ${lineTotal}`;
     })
     .join('\n');
 
