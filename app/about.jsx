@@ -78,15 +78,15 @@ export default function AboutScreen() {
 
           <View style={styles.contactCard}>
             <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={18} color={colors.primary} />
+              <Ionicons name="call-outline" size={18} color={colors.accent} />
               <Text style={styles.contactText}>{STORE_PHONE}</Text>
             </View>
             <View style={styles.contactRow}>
-              <Ionicons name="location-outline" size={18} color={colors.primary} />
+              <Ionicons name="location-outline" size={18} color={colors.accent} />
               <Text style={styles.contactText}>{STORE_ADDRESS}</Text>
             </View>
             <View style={styles.contactRow}>
-              <Ionicons name="globe-outline" size={18} color={colors.primary} />
+              <Ionicons name="globe-outline" size={18} color={colors.accent} />
               <Text style={styles.contactText}>kababhutatl.com</Text>
             </View>
           </View>
@@ -188,11 +188,16 @@ const styles = StyleSheet.create({
   },
   contactCard: {
     borderWidth: 1,
-    borderColor: '#f3f4f6',
+    borderColor: '#7f1d1d',
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.primaryDark,
+    shadowColor: '#450a0a',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   contactRow: {
     flexDirection: 'row',
@@ -200,9 +205,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   contactText: {
-    color: colors.text,
+    color: '#fee2e2',
     fontSize: 14,
     flex: 1,
+    fontWeight: '600',
   },
   highlightCard: {
     flexDirection: 'row',

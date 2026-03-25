@@ -19,6 +19,15 @@ import { createOrder } from '../lib/firebase/orders';
 import { getUserProfile } from '../lib/firebase/userProfiles';
 import { colors, radii, spacing } from '../lib/theme';
 
+const REQUIRED_PROFILE_FIELDS = [
+  { key: 'fullName', label: 'Full Name' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'addressLine1', label: 'Address Line 1' },
+  { key: 'city', label: 'City' },
+  { key: 'state', label: 'State' },
+  { key: 'zipCode', label: 'ZIP Code' },
+];
+
 function resolvePriceValue(item) {
   const value = Number(item.price);
   return Number.isFinite(value) ? value : 0;
@@ -42,7 +51,11 @@ export default function CheckoutScreen() {
   }, [user]);
 
   const total = useMemo(
-    () => items.reduce((sum, item) => sum + resolvePriceValue(item), 0),
+    () =>
+      items.reduce((sum, item) => {
+        const quantity = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1;
+        return sum + resolvePriceValue(item) * quantity;
+      }, 0),
     [items]
   );
 
@@ -57,10 +70,42 @@ export default function CheckoutScreen() {
       return;
     }
 
-    setPlacingOrder(true);
-
     try {
       const profile = await getUserProfile(user.uid);
+      const missingFields = REQUIRED_PROFILE_FIELDS
+        .filter(({ key }) => !(profile?.[key] || '').toString().trim())
+        .map(({ label }) => label);
+
+      if (missingFields.length > 0) {
+        Alert.alert(
+          'Complete Profile First',
+          `Please update these fields before placing an order:\n\n${missingFields.join(', ')}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Go to Profile', onPress: () => router.push('/profile') },
+          ]
+        );
+        return;
+      }
+
+      const hasPackage = items.some((item) => item.type === 'package');
+      const totalCustomUnits = items
+        .filter((item) => item.type !== 'package')
+        .reduce((sum, item) => {
+          const quantity = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1;
+          return sum + quantity;
+        }, 0);
+
+      if (!hasPackage && totalCustomUnits < 4) {
+        Alert.alert(
+          'Minimum Custom Order',
+          'For custom menu catering, please select at least 4 tray items or choose a package.'
+        );
+        return;
+      }
+
+      setPlacingOrder(true);
+
       const orderId = await createOrder({
         userId: user.uid,
         userEmail: user.email || '',
@@ -170,12 +215,12 @@ export default function CheckoutScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Items ({items.length})</Text>
           {items.map((item, index) => (
-            <View key={`${item.id}-${index}`} style={styles.itemRow}>
+            <View key={item.cartKey || `${item.id}-${index}`} style={styles.itemRow}>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemPrice}>
                 {resolvePriceValue(item) > 0
-                  ? `$${resolvePriceValue(item).toFixed(2)}`
-                  : item.priceLabel || 'Contact for pricing'}
+                  ? `${Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1} × $${resolvePriceValue(item).toFixed(2)}`
+                  : `${Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1} × ${item.priceLabel || 'Contact for pricing'}`}
               </Text>
             </View>
           ))}

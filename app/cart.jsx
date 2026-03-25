@@ -13,9 +13,12 @@ function resolvePriceValue(item) {
 
 export default function CartScreen() {
   const { user } = useAuth();
-  const { items, removeItem, clearCart } = useCart();
+  const { items, removeItem, clearCart, increaseItem, decreaseItem } = useCart();
 
-  const total = items.reduce((sum, item) => sum + resolvePriceValue(item), 0);
+  const total = items.reduce((sum, item) => {
+    const quantity = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1;
+    return sum + resolvePriceValue(item) * quantity;
+  }, 0);
 
   function proceedToCheckout() {
     if (!user) {
@@ -46,23 +49,43 @@ export default function CartScreen() {
           <View style={styles.list}>
             {items.map((item, index) => {
               const priceValue = resolvePriceValue(item);
+              const quantity = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1;
 
               return (
-                <View key={`${item.id}-${index}`} style={styles.itemRow}>
+                <View key={item.cartKey || `${item.id}-${index}`} style={styles.itemRow}>
                   <View style={styles.itemInfo}>
                     <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemMeta}>Qty: {quantity}</Text>
                     <Text style={styles.itemPrice}>
                       {priceValue > 0
-                        ? `$${priceValue.toFixed(2)}`
+                        ? `$${priceValue.toFixed(2)} each${quantity > 1 ? ` • $${(priceValue * quantity).toFixed(2)} total` : ''}`
                         : item.priceLabel || 'Contact for pricing'}
                     </Text>
                   </View>
-                  <Pressable
-                    onPress={() => removeItem(index)}
-                    style={({ pressed }) => [styles.removeButton, pressed ? styles.pressed : null]}
-                  >
-                    <Text style={styles.removeButtonText}>Remove</Text>
-                  </Pressable>
+                  <View style={styles.controlsCol}>
+                    <View style={styles.qtyRow}>
+                      <Pressable
+                        onPress={() => decreaseItem(item.cartKey || item.id)}
+                        style={({ pressed }) => [styles.qtyButton, pressed ? styles.pressed : null]}
+                      >
+                        <Text style={styles.qtyButtonText}>-</Text>
+                      </Pressable>
+                      <Text style={styles.qtyValue}>{quantity}</Text>
+                      <Pressable
+                        onPress={() => increaseItem(item.cartKey || item.id)}
+                        style={({ pressed }) => [styles.qtyButton, pressed ? styles.pressed : null]}
+                      >
+                        <Text style={styles.qtyButtonText}>+</Text>
+                      </Pressable>
+                    </View>
+
+                    <Pressable
+                      onPress={() => removeItem(item.cartKey || item.id)}
+                      style={({ pressed }) => [styles.removeButton, pressed ? styles.pressed : null]}
+                    >
+                      <Text style={styles.removeButtonText}>Remove</Text>
+                    </Pressable>
+                  </View>
                 </View>
               );
             })}
@@ -176,6 +199,42 @@ const styles = StyleSheet.create({
   itemPrice: {
     color: colors.textMuted,
     fontSize: 13,
+  },
+  itemMeta: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  controlsCol: {
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  qtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qtyButton: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  qtyButtonText: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  qtyValue: {
+    minWidth: 20,
+    textAlign: 'center',
+    color: colors.text,
+    fontWeight: '700',
   },
   removeButton: {
     backgroundColor: '#fee2e2',

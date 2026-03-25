@@ -107,7 +107,7 @@ function mergePackagesWithFallback(remotePackages, fallback) {
   const normalizedRemote = remotePackages.map((pkg, index) => ({
     id: pkg.id || `pkg-${index}`,
     order: pkg.order || index + 1,
-    name: pkg.name || `Package ${index + 1}`,
+    name: (pkg.name || `Package ${index + 1}`).trim(),
     badge: pkg.badge || 'Large events',
     guests: pkg.guests || '200+ ppl',
     appetizers: Array.isArray(pkg.appetizers) ? pkg.appetizers : [],
@@ -116,12 +116,23 @@ function mergePackagesWithFallback(remotePackages, fallback) {
     premiumDessert: Array.isArray(pkg.premiumDessert) ? pkg.premiumDessert : [],
   }));
 
-  const existingNames = new Set(normalizedRemote.map((pkg) => (pkg.name || '').toLowerCase()));
+  const dedupedRemote = [];
+  const seenNames = new Set();
+  normalizedRemote.forEach((pkg) => {
+    const key = pkg.name.toLowerCase();
+    if (seenNames.has(key)) {
+      return;
+    }
+    seenNames.add(key);
+    dedupedRemote.push(pkg);
+  });
+
+  const existingNames = new Set(dedupedRemote.map((pkg) => (pkg.name || '').toLowerCase()));
   const missingFallback = fallback.filter(
     (pkg) => !existingNames.has((pkg.name || '').toLowerCase())
   );
 
-  return [...normalizedRemote, ...missingFallback];
+  return [...dedupedRemote, ...missingFallback];
 }
 
 export default function HomeScreen() {
