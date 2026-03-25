@@ -16,10 +16,12 @@
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/icons/icon-256.png",
-      "bundleIdentifier": "com.anonymous.cateringmobile"
+      "bundleIdentifier": "com.kababhutatl.catering",
+      "buildNumber": "1"
     },
     "android": {
-      "package": "com.anonymous.cateringmobile",
+      "package": "com.kababhutatl.catering",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
