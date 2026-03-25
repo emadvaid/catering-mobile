@@ -6,6 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors, radii, spacing } from '../../lib/theme';
 
+const STRONG_PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[^\s]{8,64}$/;
+
 export default function SignupScreen() {
   const router = useRouter();
   const { redirect } = useLocalSearchParams();
@@ -32,8 +35,11 @@ export default function SignupScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Weak password', 'Password should be at least 6 characters.');
+    if (!STRONG_PASSWORD_REGEX.test(password)) {
+      Alert.alert(
+        'Weak password',
+        'Use 8+ characters with uppercase, lowercase, number, and special character. Spaces are not allowed.'
+      );
       return;
     }
 
@@ -78,7 +84,7 @@ export default function SignupScreen() {
 
         <Text style={styles.label}>Password</Text>
         <TextInput
-          placeholder="Minimum 6 characters"
+          placeholder="Min 8 chars, strong password"
           secureTextEntry
           autoCapitalize="none"
           value={password}
@@ -86,6 +92,9 @@ export default function SignupScreen() {
           style={styles.input}
           placeholderTextColor="#9ca3af"
         />
+        <Text style={styles.passwordHint}>
+          Must include uppercase, lowercase, number, and special character.
+        </Text>
 
         <Pressable
           onPress={handleSignup}
@@ -178,6 +187,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     backgroundColor: colors.surfaceMuted,
+  },
+  passwordHint: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: -2,
+    marginBottom: 2,
   },
   primaryButton: {
     marginTop: spacing.sm,
