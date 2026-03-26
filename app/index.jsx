@@ -473,14 +473,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: '#fff',
+    borderColor: '#fecaca',
+    backgroundColor: '#fff1f2',
     justifyContent: 'center',
   },
   categoryPillText: {
-    color: colors.text,
+    color: colors.primary,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   specialtyGrid: {
     flexDirection: 'row',

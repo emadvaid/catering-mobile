@@ -66,14 +66,22 @@ export default function CartScreen() {
                     <View style={styles.qtyRow}>
                       <Pressable
                         onPress={() => decreaseItem(item.cartKey || item.id)}
-                        style={({ pressed }) => [styles.qtyButton, pressed ? styles.pressed : null]}
+                        style={({ pressed }) => [
+                          styles.qtyButton,
+                          styles.qtyButtonMinus,
+                          pressed ? styles.pressed : null,
+                        ]}
                       >
-                        <Text style={styles.qtyButtonText}>-</Text>
+                        <Text style={[styles.qtyButtonText, styles.qtyButtonTextDark]}>-</Text>
                       </Pressable>
                       <Text style={styles.qtyValue}>{quantity}</Text>
                       <Pressable
                         onPress={() => increaseItem(item.cartKey || item.id)}
-                        style={({ pressed }) => [styles.qtyButton, pressed ? styles.pressed : null]}
+                        style={({ pressed }) => [
+                          styles.qtyButton,
+                          styles.qtyButtonPlus,
+                          pressed ? styles.pressed : null,
+                        ]}
                       >
                         <Text style={styles.qtyButtonText}>+</Text>
                       </Pressable>
@@ -219,16 +227,24 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+  },
+  qtyButtonMinus: {
+    backgroundColor: '#fde68a',
+  },
+  qtyButtonPlus: {
+    backgroundColor: colors.primary,
   },
   qtyButtonText: {
-    color: colors.text,
+    color: '#fff',
     fontWeight: '800',
     fontSize: 16,
     lineHeight: 18,
+  },
+  qtyButtonTextDark: {
+    color: '#7c2d12',
   },
   qtyValue: {
     minWidth: 20,
