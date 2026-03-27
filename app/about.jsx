@@ -69,9 +69,9 @@ export default function AboutScreen() {
           ))}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hungry? Visit Kabab Hut</Text>
-          <Text style={styles.sectionText}>
+        <View style={[styles.section, styles.visitSection]}>
+          <Text style={[styles.sectionTitle, styles.visitSectionTitle]}>Hungry? Visit Kabab Hut</Text>
+          <Text style={styles.visitSectionText}>
             Stop by our store, call us directly, or check our full catering website for more
             options and event photos.
           </Text>
@@ -92,24 +92,38 @@ export default function AboutScreen() {
           </View>
 
           <Pressable
-            style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : null]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              styles.websiteButton,
+              pressed ? styles.pressed : null,
+            ]}
             onPress={() => openUrl(WEBSITE_LINK, 'Website')}
           >
-            <Text style={styles.primaryButtonText}>Hungry? Check Out Our Website</Text>
+            <Text style={styles.websiteButtonText}>Hungry? Check Out Our Website</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              styles.visitActionButton,
+              styles.callButton,
+              pressed ? styles.pressed : null,
+            ]}
             onPress={() => openUrl(STORE_PHONE_LINK, 'Phone')}
           >
-            <Text style={styles.secondaryButtonText}>Call Store</Text>
+            <Text style={styles.coloredButtonText}>Call Store</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              styles.visitActionButton,
+              styles.directionsButton,
+              pressed ? styles.pressed : null,
+            ]}
             onPress={() => openUrl(DIRECTIONS_LINK, 'Directions')}
           >
-            <Text style={styles.secondaryButtonText}>Get Directions</Text>
+            <Text style={styles.coloredButtonText}>Get Directions</Text>
           </Pressable>
         </View>
 
@@ -186,13 +200,27 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
+  visitSection: {
+    backgroundColor: colors.primaryDark,
+    borderColor: '#7f1d1d',
+    shadowColor: '#450a0a',
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  visitSectionText: {
+    color: '#fecaca',
+    fontSize: 14,
+    lineHeight: 20,
+  },
   contactCard: {
     borderWidth: 1,
-    borderColor: '#7f1d1d',
+    borderColor: '#991b1b',
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
-    backgroundColor: colors.primaryDark,
+    backgroundColor: '#7f1d1d',
     shadowColor: '#450a0a',
     shadowOpacity: 0.18,
     shadowRadius: 12,
@@ -247,6 +275,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     letterSpacing: -0.3,
   },
+  visitSectionTitle: {
+    color: '#fff',
+  },
   sectionText: {
     color: colors.textMuted,
     fontSize: 14,
@@ -260,8 +291,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  websiteButton: {
+    backgroundColor: '#fbbf24',
+  },
   primaryButtonText: {
     color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  websiteButtonText: {
+    color: '#1f2937',
     fontWeight: '700',
     fontSize: 15,
   },
@@ -273,6 +312,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  visitActionButton: {
+    borderWidth: 0,
+  },
+  callButton: {
+    backgroundColor: '#991b1b',
+  },
+  directionsButton: {
+    backgroundColor: '#991b1b',
+  },
+  coloredButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
   secondaryButtonText: {
     color: colors.text,
