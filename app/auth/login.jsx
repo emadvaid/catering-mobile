@@ -12,6 +12,7 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { exchangeCodeAsync, makeRedirectUri } from 'expo-auth-session';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +23,7 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LoginScreen() {
   const router = useRouter();
   const { redirect } = useLocalSearchParams();
-  const { login, loginWithGoogleIdToken } = useAuth();
+  const { login, loginWithGoogleTokens } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,50 +34,53 @@ export default function LoginScreen() {
   const isExpoGo =
     Constants.appOwnership === 'expo' ||
     Constants.executionEnvironment === 'storeClient';
+  const isAndroid = Platform.OS === 'android';
+  const androidNativeRedirectUri = useMemo(() => {
+    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+    if (!androidClientId) {
+      return undefined;
+    }
+
+    const clientIdPrefix = androidClientId.replace('.apps.googleusercontent.com', '');
+    return `com.googleusercontent.apps.${clientIdPrefix}:/oauthredirect`;
+  }, []);
 
   const authConfig = useMemo(
+    () => {
+      const config = {
+        iosClientId:
+          process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+          process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+        androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+        scopes: ['openid', 'profile', 'email'],
+        selectAccount: true,
+      };
+
+      if (isAndroid && androidNativeRedirectUri) {
+        config.redirectUri = makeRedirectUri({
+          native: androidNativeRedirectUri,
+        });
+      }
+
+      if (isExpoGo) {
+        config.expoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID;
+      }
+
+      return config;
+    },
+    [androidNativeRedirectUri, isAndroid, isExpoGo]
+  );
+
+  const [request, , promptAsync] = Google.useAuthRequest(authConfig);
+  const googleDiscovery = useMemo(
     () => ({
-      expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-      iosClientId:
-        process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
-        process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenEndpoint: 'https://oauth2.googleapis.com/token',
+      revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
     }),
     []
   );
-
-  const [request, response, promptAsync] = Google.useAuthRequest(authConfig);
-
-  useEffect(() => {
-    async function handleGoogleResponse() {
-      if (response?.type !== 'success') {
-        return;
-      }
-
-      const idToken =
-        response.authentication?.idToken ||
-        response.params?.id_token ||
-        response.params?.idToken;
-
-      if (!idToken) {
-        Alert.alert('Google Sign-In', 'Google did not return an ID token. Please retry.');
-        setGoogleLoading(false);
-        return;
-      }
-
-      try {
-        await loginWithGoogleIdToken(idToken);
-        router.replace(nextRoute);
-      } catch (error) {
-        Alert.alert('Google Sign-In', error.message || 'Could not sign in with Google.');
-      } finally {
-        setGoogleLoading(false);
-      }
-    }
-
-    handleGoogleResponse();
-  }, [response, loginWithGoogleIdToken, nextRoute, router]);
 
   async function handleLogin() {
     if (!email || !password) {
@@ -112,17 +116,65 @@ export default function LoginScreen() {
     setGoogleLoading(true);
 
     try {
-      const useProxy = Platform.OS === 'android';
-      const result = await promptAsync(useProxy ? { useProxy: true } : undefined);
+      const result = await promptAsync({
+        useProxy: false,
+      });
 
       if (result?.type !== 'success') {
         setGoogleLoading(false);
+        return;
       }
+
+      let idToken =
+        result.authentication?.idToken ||
+        result.params?.id_token ||
+        result.params?.idToken;
+      let accessToken =
+        result.authentication?.accessToken ||
+        result.params?.access_token ||
+        result.params?.accessToken;
+
+      const authorizationCode = result.params?.code;
+      if (!idToken && authorizationCode && request?.codeVerifier) {
+        const tokenResponse = await exchangeCodeAsync(
+          {
+            clientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+            code: authorizationCode,
+            redirectUri: authConfig.redirectUri,
+            extraParams: {
+              code_verifier: request.codeVerifier,
+            },
+          },
+          googleDiscovery
+        );
+
+        idToken = tokenResponse.idToken || idToken;
+        accessToken = tokenResponse.accessToken || accessToken;
+      }
+
+      if (!idToken && !accessToken) {
+        setGoogleLoading(false);
+        Alert.alert('Google Sign-In', 'Google did not return valid auth tokens. Please retry.');
+        return;
+      }
+
+      await loginWithGoogleTokens({ idToken, accessToken });
+      router.replace(nextRoute);
+      setGoogleLoading(false);
     } catch (error) {
       setGoogleLoading(false);
       Alert.alert('Google Sign-In', error.message || 'Could not start Google sign-in.');
     }
   }
+
+  useEffect(() => {
+    if (!isAndroid || !request) {
+      return;
+    }
+
+    // no-op effect keeps request initialized before first press on some Android emulators
+    // where the first auth attempt can otherwise drop redirect state.
+  }, [isAndroid, request]);
 
   function handleBack() {
     if (typeof redirect === 'string' && redirect.length > 0) {

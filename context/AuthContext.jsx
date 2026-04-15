@@ -3,7 +3,7 @@ import {
   observeAuthState,
   signInWithEmail,
   signInWithGoogle,
-  signInWithGoogleIdToken,
+  signInWithGoogleCredential,
   signOutUser,
   signUpWithEmail,
 } from '../lib/firebase/auth';
@@ -42,8 +42,8 @@ export function AuthProvider({ children }) {
     return result.user;
   }
 
-  async function loginWithGoogleIdToken(idToken) {
-    const result = await signInWithGoogleIdToken(idToken);
+  async function loginWithGoogleTokens({ idToken, accessToken }) {
+    const result = await signInWithGoogleCredential({ idToken, accessToken });
     await upsertUserProfile(result.user);
     return result.user;
   }
@@ -60,7 +60,7 @@ export function AuthProvider({ children }) {
         login,
         signup,
         loginWithGoogle,
-        loginWithGoogleIdToken,
+        loginWithGoogleTokens,
         logout,
       }}
     >
