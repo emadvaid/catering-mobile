@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +14,6 @@ import {
 import { PACKAGE_CARDS } from '../data/packages';
 import { fetchMenuItems, fetchPackages } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
-
-const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 const HOW_IT_WORKS = [
   {
@@ -136,7 +133,7 @@ function mergePackagesWithFallback(remotePackages, fallback) {
 }
 
 export default function HomeScreen() {
-  const { addItem, itemCount } = useCart();
+  const { addItem } = useCart();
 
   const [menuItems, setMenuItems] = useState(MENU_ITEMS);
   const [packageCards, setPackageCards] = useState(PACKAGE_CARDS);
@@ -180,10 +177,6 @@ export default function HomeScreen() {
   }, []);
 
   const featuredItems = useMemo(() => menuItems.slice(0, 8), [menuItems]);
-
-  async function resetOnboarding() {
-    await AsyncStorage.removeItem(ONBOARDING_KEY);
-  }
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -323,16 +316,6 @@ export default function HomeScreen() {
             onPress={() => router.push('/packages')}
           >
             <Text style={styles.centerButtonText}>View All Packages</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.footerInfo}>
-          <Text style={styles.footerText}>Items in cart: {itemCount}</Text>
-          <Pressable
-            style={({ pressed }) => [styles.resetButton, pressed ? styles.pressed : null]}
-            onPress={resetOnboarding}
-          >
-            <Text style={styles.resetButtonText}>Reset Onboarding (Test)</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -580,27 +563,6 @@ const styles = StyleSheet.create({
   packageButtonText: {
     color: '#fff',
     fontWeight: '700',
-  },
-  footerInfo: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  footerText: {
-    color: colors.text,
-    fontWeight: '700',
-  },
-  resetButton: {
-    height: 40,
-    borderRadius: radii.sm,
-    backgroundColor: '#111827',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  resetButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 12,
   },
   pressed: {
     opacity: 0.6,
