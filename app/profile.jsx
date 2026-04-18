@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,6 +26,9 @@ const EMPTY_FORM = {
   state: '',
   zipCode: '',
 };
+
+const PRIVACY_POLICY_URL = 'https://kababhutatl.com/privacy-policy';
+const ACCOUNT_DELETION_URL = 'https://kababhutatl.com/account-deletion';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -120,6 +124,20 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  }
+
+  async function openExternalUrl(url) {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert('Cannot open link', 'Please try again later.');
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      Alert.alert('Cannot open link', 'Please try again later.');
+    }
   }
 
   return (
@@ -231,6 +249,31 @@ export default function ProfileScreen() {
             >
               <Text style={styles.secondaryButtonText}>Sign Out</Text>
             </Pressable>
+
+            <View style={styles.legalBox}>
+              <Text style={styles.legalTitle}>Privacy & Account Controls</Text>
+              <Text style={styles.legalText}>
+                Review our privacy policy or request account deletion from here.
+              </Text>
+
+              <Pressable
+                style={({ pressed }) => [styles.linkButton, pressed ? styles.pressed : null]}
+                onPress={() => openExternalUrl(PRIVACY_POLICY_URL)}
+              >
+                <Text style={styles.linkButtonText}>Open Privacy Policy</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  styles.warnLinkButton,
+                  pressed ? styles.pressed : null,
+                ]}
+                onPress={() => openExternalUrl(ACCOUNT_DELETION_URL)}
+              >
+                <Text style={styles.warnLinkButtonText}>Open Account Deletion Page</Text>
+              </Pressable>
+            </View>
           </View>
         ) : (
           <View style={styles.actionsCard}>
@@ -247,6 +290,16 @@ export default function ProfileScreen() {
             >
               <Text style={styles.secondaryButtonText}>Create Account</Text>
             </Pressable>
+
+            <View style={styles.legalBox}>
+              <Text style={styles.legalTitle}>Privacy</Text>
+              <Pressable
+                style={({ pressed }) => [styles.linkButton, pressed ? styles.pressed : null]}
+                onPress={() => openExternalUrl(PRIVACY_POLICY_URL)}
+              >
+                <Text style={styles.linkButtonText}>Open Privacy Policy</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -377,6 +430,50 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
     fontSize: 15,
+  },
+  legalBox: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+    backgroundColor: '#fff',
+  },
+  legalTitle: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  legalText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 2,
+  },
+  linkButton: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: radii.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#f8fafc',
+  },
+  linkButtonText: {
+    color: '#0f172a',
+    fontWeight: '700',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  warnLinkButton: {
+    borderColor: '#fecaca',
+    backgroundColor: '#fff1f2',
+  },
+  warnLinkButtonText: {
+    color: '#991b1b',
+    fontWeight: '700',
+    fontSize: 13,
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.6,

@@ -32,6 +32,8 @@ const STORE_ADDRESS = '880 Indian Trail Lilburn Rd NW, Lilburn, GA 30047';
 const DIRECTIONS_LINK =
   'https://www.google.com/maps/search/?api=1&query=880%20Indian%20Trail%20Lilburn%20Rd%20NW%2C%20Lilburn%2C%20GA%2030047';
 const WEBSITE_LINK = 'https://kababhutatl.com/';
+const PRIVACY_POLICY_LINK = 'https://kababhutatl.com/privacy-policy';
+const ACCOUNT_DELETION_LINK = 'https://kababhutatl.com/account-deletion';
 
 export default function AboutScreen() {
   async function openUrl(url, label) {
@@ -146,6 +148,29 @@ export default function AboutScreen() {
             onPress={() => router.push('/menu')}
           >
             <Text style={styles.secondaryButtonText}>Browse Full Menu</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.section, styles.complianceSection]}>
+          <Text style={styles.sectionTitle}>Privacy & Account Controls</Text>
+          <Text style={styles.sectionText}>
+            Review how data is handled and how to request account deletion.
+          </Text>
+
+          <Pressable
+            style={({ pressed }) => [styles.secondaryButton, styles.complianceButton, pressed ? styles.pressed : null]}
+            onPress={() => openUrl(PRIVACY_POLICY_LINK, 'Privacy Policy')}
+          >
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
+            <Text style={styles.complianceButtonText}>Privacy Policy</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.secondaryButton, styles.complianceButton, pressed ? styles.pressed : null]}
+            onPress={() => openUrl(ACCOUNT_DELETION_LINK, 'Account Deletion')}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.primary} />
+            <Text style={styles.complianceButtonText}>Account Deletion</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -283,6 +308,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  complianceSection: {
+    borderColor: '#fecaca',
+    backgroundColor: '#fff7f7',
+  },
   primaryButton: {
     marginTop: spacing.sm,
     height: 46,
@@ -331,6 +360,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
     fontSize: 15,
+  },
+  complianceButton: {
+    flexDirection: 'row',
+    gap: 8,
+    borderColor: '#fecaca',
+    backgroundColor: '#fff',
+  },
+  complianceButtonText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
   },
   pressed: {
     opacity: 0.6,
