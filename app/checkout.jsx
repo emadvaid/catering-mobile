@@ -126,7 +126,10 @@ export default function CheckoutScreen() {
       });
 
       clearCart();
-      Alert.alert('Order submitted', `Your order was placed successfully. Order ID: ${orderId}`);
+      Alert.alert(
+        'Order submitted',
+        `Your order was placed successfully. Order ID: ${orderId}\n\nYou will be contacted by the Kabab Hut team shortly.`
+      );
       router.replace('/');
     } catch (error) {
       Alert.alert('Order failed', error.message || 'Could not place your order. Please try again.');
