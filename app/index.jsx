@@ -38,6 +38,24 @@ const HOW_IT_WORKS = [
   },
 ];
 
+function formatGuestsLabel(value) {
+  const raw = (value || '').toString().trim();
+  if (!raw) {
+    return '200+ ppl';
+  }
+
+  const hasPeopleWord = /\b(ppl|people|guests?)\b/i.test(raw);
+  if (hasPeopleWord) {
+    return raw;
+  }
+
+  if (/^\d+\+?$/.test(raw)) {
+    return `${raw} ppl`;
+  }
+
+  return raw;
+}
+
 function toCartItem(item) {
   return {
     id: item.id,
@@ -106,7 +124,7 @@ function mergePackagesWithFallback(remotePackages, fallback) {
     order: pkg.order || index + 1,
     name: (pkg.name || `Package ${index + 1}`).trim(),
     badge: pkg.badge || 'Large events',
-    guests: pkg.guests || '200+ ppl',
+    guests: formatGuestsLabel(pkg.guests),
     appetizers: Array.isArray(pkg.appetizers) ? pkg.appetizers : [],
     mains: Array.isArray(pkg.mains) ? pkg.mains : [],
     regularDessert: Array.isArray(pkg.regularDessert) ? pkg.regularDessert : [],
