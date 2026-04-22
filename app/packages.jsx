@@ -26,6 +26,24 @@ const PACKAGE_HEADER_IMAGES = {
   'pkg-d': require('../assets/cards-header/card-4.jpg'),
 };
 
+function formatGuestsLabel(value) {
+  const raw = (value || '').toString().trim();
+  if (!raw) {
+    return '200+ ppl';
+  }
+
+  const hasPeopleWord = /\b(ppl|people|guests?)\b/i.test(raw);
+  if (hasPeopleWord) {
+    return raw;
+  }
+
+  if (/^\d+\+?$/.test(raw)) {
+    return `${raw} ppl`;
+  }
+
+  return raw;
+}
+
 function formatList(items) {
   if (!Array.isArray(items) || items.length === 0) {
     return ['Contact us for options'];
@@ -40,7 +58,7 @@ function mergePackagesWithFallback(remotePackages, fallback) {
     order: pkg.order || index + 1,
     name: (pkg.name || `Package ${index + 1}`).trim(),
     badge: pkg.badge || 'Large events',
-    guests: pkg.guests || '200+ ppl',
+    guests: formatGuestsLabel(pkg.guests),
     appetizers: formatList(pkg.appetizers),
     mains: formatList(pkg.mains),
     regularDessert: formatList(pkg.regularDessert),
