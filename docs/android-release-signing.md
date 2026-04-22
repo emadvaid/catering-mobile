@@ -56,3 +56,51 @@ After uploading to Play (Closed testing):
 - Copy App Signing SHA-1
 - Add it to Firebase Android app + Google OAuth Android client
 - Rebuild and retest Google Sign-In in release
+
+## 6) Google Sign-In release certificate setup (Step 4)
+
+### A) Create two Android OAuth clients in Google Auth Platform
+
+Use package name:
+
+`com.kababhutatl.catering`
+
+Create/keep:
+- **Debug Android client** with debug SHA-1 (for emulator/dev build)
+- **Release Android client** with Play App Signing SHA-1 (for Play release)
+
+Do not remove debug client; keep both.
+
+### B) Put both client IDs in `.env`
+
+```properties
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID_DEBUG=<android-debug-client-id>
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID_RELEASE=<android-release-client-id>
+```
+
+This app is configured to pick:
+- debug ID in dev builds
+- release ID in release builds
+
+### C) Add SHA-1 in Firebase
+
+Firebase Console -> Project Settings -> Your apps -> Android (`com.kababhutatl.catering`)
+- add debug SHA-1 (if missing)
+- add Play App Signing SHA-1
+
+### D) Verify redirect scheme is present in AndroidManifest
+
+Release client ID prefix becomes redirect scheme:
+
+`com.googleusercontent.apps.<release-client-id-prefix>:/oauthredirect`
+
+The app derives this automatically from the Android client ID used at build time.
+
+### E) Build and test release
+
+```bash
+cd android
+./gradlew bundleRelease
+```
+
+Install/internal test via Play Console and verify Google Sign-In works in that signed release build.
