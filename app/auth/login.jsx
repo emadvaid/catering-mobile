@@ -35,15 +35,27 @@ export default function LoginScreen() {
     Constants.appOwnership === 'expo' ||
     Constants.executionEnvironment === 'storeClient';
   const isAndroid = Platform.OS === 'android';
+  const androidClientId = useMemo(() => {
+    if (__DEV__) {
+      return (
+        process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID_DEBUG ||
+        process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+      );
+    }
+
+    return (
+      process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID_RELEASE ||
+      process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+    );
+  }, []);
   const androidNativeRedirectUri = useMemo(() => {
-    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
     if (!androidClientId) {
       return undefined;
     }
 
     const clientIdPrefix = androidClientId.replace('.apps.googleusercontent.com', '');
     return `com.googleusercontent.apps.${clientIdPrefix}:/oauthredirect`;
-  }, []);
+  }, [androidClientId]);
 
   const authConfig = useMemo(
     () => {
@@ -51,7 +63,7 @@ export default function LoginScreen() {
         iosClientId:
           process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
           process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-        androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+        androidClientId,
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
         scopes: ['openid', 'profile', 'email'],
         selectAccount: true,
@@ -69,7 +81,7 @@ export default function LoginScreen() {
 
       return config;
     },
-    [androidNativeRedirectUri, isAndroid, isExpoGo]
+    [androidClientId, androidNativeRedirectUri, isAndroid, isExpoGo]
   );
 
   const [request, , promptAsync] = Google.useAuthRequest(authConfig);
@@ -138,7 +150,7 @@ export default function LoginScreen() {
       if (!idToken && authorizationCode && request?.codeVerifier) {
         const tokenResponse = await exchangeCodeAsync(
           {
-            clientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+            clientId: androidClientId,
             code: authorizationCode,
             redirectUri: authConfig.redirectUri,
             extraParams: {
@@ -177,12 +189,7 @@ export default function LoginScreen() {
   }, [isAndroid, request]);
 
   function handleBack() {
-    if (typeof redirect === 'string' && redirect.length > 0) {
-      router.replace(redirect);
-      return;
-    }
-
-    router.replace('/cart');
+    router.replace('/');
   }
 
   return (
