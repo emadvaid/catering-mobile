@@ -257,15 +257,14 @@ export default function ProfileScreen() {
               </Text>
 
               <Pressable
-                style={({ pressed }) => [styles.linkButton, pressed ? styles.pressed : null]}
+                style={({ pressed }) => [styles.inlineLink, pressed ? styles.pressed : null]}
                 onPress={() => openExternalUrl(PRIVACY_POLICY_URL)}
               >
-                <Text style={styles.linkButtonText}>Open Privacy Policy</Text>
+                <Text style={styles.inlineLinkText}>Open Privacy Policy</Text>
               </Pressable>
 
               <Pressable
                 style={({ pressed }) => [
-                  styles.linkButton,
                   styles.warnLinkButton,
                   pressed ? styles.pressed : null,
                 ]}
@@ -294,10 +293,10 @@ export default function ProfileScreen() {
             <View style={styles.legalBox}>
               <Text style={styles.legalTitle}>Privacy</Text>
               <Pressable
-                style={({ pressed }) => [styles.linkButton, pressed ? styles.pressed : null]}
+                style={({ pressed }) => [styles.inlineLink, pressed ? styles.pressed : null]}
                 onPress={() => openExternalUrl(PRIVACY_POLICY_URL)}
               >
-                <Text style={styles.linkButtonText}>Open Privacy Policy</Text>
+                <Text style={styles.inlineLinkText}>Open Privacy Policy</Text>
               </Pressable>
             </View>
           </View>
@@ -451,22 +450,23 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 2,
   },
-  linkButton: {
+  inlineLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  inlineLinkText: {
+    color: colors.primary,
+    fontWeight: '800',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  warnLinkButton: {
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#fecaca',
     borderRadius: radii.md,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: '#f8fafc',
-  },
-  linkButtonText: {
-    color: '#0f172a',
-    fontWeight: '700',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  warnLinkButton: {
-    borderColor: '#fecaca',
     backgroundColor: '#fff1f2',
   },
   warnLinkButtonText: {

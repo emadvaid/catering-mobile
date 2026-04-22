@@ -13,6 +13,9 @@ export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
+  const isOnboardingRoute = segments[0] === 'onboarding';
+  const holdContentUntilRouted =
+    showSplash || isCheckingOnboarding || (!hasSeenOnboarding && !isOnboardingRoute);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -78,8 +81,6 @@ export default function RootLayout() {
         setHasSeenOnboarding(seenFlag);
       }
 
-      const isOnboardingRoute = segments[0] === 'onboarding';
-
       if (!seenFlag && !isOnboardingRoute) {
         router.replace('/onboarding');
         return;
@@ -101,9 +102,9 @@ export default function RootLayout() {
     <AuthProvider>
       <CartProvider>
         <View style={styles.root}>
-          <Slot />
+          {!holdContentUntilRouted ? <Slot /> : null}
 
-          {(showSplash || isCheckingOnboarding) && (
+          {holdContentUntilRouted && (
             <View style={styles.splashOverlay}>
               <Image
                 source={require('../assets/icons/icon-256.png')}
