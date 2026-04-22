@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -28,6 +29,14 @@ const REQUIRED_PROFILE_FIELDS = [
   { key: 'zipCode', label: 'ZIP Code' },
 ];
 
+const US_STATES = [
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+];
+
 function resolvePriceValue(item) {
   const value = Number(item.price);
   return Number.isFinite(value) ? value : 0;
@@ -43,6 +52,8 @@ export default function CheckoutScreen() {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [eventState, setEventState] = useState('GA');
+  const [showStatePicker, setShowStatePicker] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -104,6 +115,14 @@ export default function CheckoutScreen() {
         return;
       }
 
+      if (eventState !== 'GA') {
+        Alert.alert(
+          'Service Area Notice',
+          'Our operations are not currently available in other states at the moment. Please select GA to place your order.'
+        );
+        return;
+      }
+
       setPlacingOrder(true);
 
       const orderId = await createOrder({
@@ -120,7 +139,7 @@ export default function CheckoutScreen() {
           addressLine1: profile?.addressLine1 || '',
           addressLine2: profile?.addressLine2 || '',
           city: profile?.city || '',
-          state: profile?.state || '',
+          state: eventState || profile?.state || '',
           zipCode: profile?.zipCode || '',
         },
       });
@@ -205,6 +224,19 @@ export default function CheckoutScreen() {
             style={styles.input}
           />
 
+          <Text style={styles.label}>Event State</Text>
+          <Pressable
+            onPress={() => setShowStatePicker(true)}
+            style={({ pressed }) => [
+              styles.input,
+              styles.selectInput,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.selectInputText}>{eventState}</Text>
+            <Text style={styles.selectInputChevron}>▼</Text>
+          </Pressable>
+
           <Text style={styles.label}>Notes</Text>
           <TextInput
             value={notes}
@@ -249,6 +281,48 @@ export default function CheckoutScreen() {
           <Text style={styles.buttonText}>{placingOrder ? 'Placing Order...' : 'Place Order'}</Text>
         </Pressable>
       </ScrollView>
+
+      <Modal transparent visible={showStatePicker} animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select State</Text>
+              <Pressable
+                onPress={() => setShowStatePicker(false)}
+                style={({ pressed }) => [styles.modalClose, pressed ? styles.pressed : null]}
+              >
+                <Text style={styles.modalCloseText}>Close</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.stateList} showsVerticalScrollIndicator={false}>
+              {US_STATES.map((stateCode) => (
+                <Pressable
+                  key={stateCode}
+                  onPress={() => {
+                    setEventState(stateCode);
+                    setShowStatePicker(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.stateOption,
+                    stateCode === eventState ? styles.stateOptionActive : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stateOptionText,
+                      stateCode === eventState ? styles.stateOptionTextActive : null,
+                    ]}
+                  >
+                    {stateCode}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <BottomNav activeRoute="/cart" />
     </SafeAreaView>
@@ -306,6 +380,20 @@ const styles = StyleSheet.create({
   },
   datePickerButton: {
     justifyContent: 'center',
+  },
+  selectInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectInputText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  selectInputChevron: {
+    color: colors.textMuted,
+    fontSize: 12,
   },
   dateText: {
     color: colors.text,
@@ -368,6 +456,70 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    maxHeight: '70%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalClose: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceMuted,
+  },
+  modalCloseText: {
+    color: colors.textMuted,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  stateList: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  stateOption: {
+    borderRadius: radii.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+  },
+  stateOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#fef2f2',
+  },
+  stateOptionText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  stateOptionTextActive: {
+    color: colors.primary,
   },
   pressed: {
     opacity: 0.6,
