@@ -3,7 +3,7 @@
     "scheme": "cateringmobile",
     "name": "catering-mobile",
     "slug": "catering-mobile",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,33 @@
     },
     "android": {
       "package": "com.kababhutatl.catering",
-      "versionCode": 3,
+      "versionCode": 8,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "com.googleusercontent.apps.342007698927-05en3sim2h6qtghcd083lasd6tauikas"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "com.googleusercontent.apps.342007698927-81c5ofsd6hbvsqs73cbf6fokmhng3ten"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
