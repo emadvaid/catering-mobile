@@ -48,6 +48,12 @@ export default function LoginScreen() {
       process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
     );
   }, []);
+  const iosClientId = useMemo(
+    () =>
+      process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+      process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+    []
+  );
   const androidNativeRedirectUri = useMemo(() => {
     if (!androidClientId) {
       return undefined;
@@ -56,13 +62,19 @@ export default function LoginScreen() {
     const clientIdPrefix = androidClientId.replace('.apps.googleusercontent.com', '');
     return `com.googleusercontent.apps.${clientIdPrefix}:/oauthredirect`;
   }, [androidClientId]);
+  const iosNativeRedirectUri = useMemo(() => {
+    if (!iosClientId) {
+      return undefined;
+    }
+
+    const clientIdPrefix = iosClientId.replace('.apps.googleusercontent.com', '');
+    return `com.googleusercontent.apps.${clientIdPrefix}:/oauthredirect`;
+  }, [iosClientId]);
 
   const authConfig = useMemo(
     () => {
       const config = {
-        iosClientId:
-          process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
-          process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+        iosClientId,
         androidClientId,
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
         scopes: ['openid', 'profile', 'email'],
@@ -75,13 +87,19 @@ export default function LoginScreen() {
         });
       }
 
+      if (Platform.OS === 'ios' && iosNativeRedirectUri) {
+        config.redirectUri = makeRedirectUri({
+          native: iosNativeRedirectUri,
+        });
+      }
+
       if (isExpoGo) {
         config.expoClientId = process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID;
       }
 
       return config;
     },
-    [androidClientId, androidNativeRedirectUri, isAndroid, isExpoGo]
+    [androidClientId, androidNativeRedirectUri, iosClientId, iosNativeRedirectUri, isAndroid, isExpoGo]
   );
 
   const [request, , promptAsync] = Google.useAuthRequest(authConfig);
@@ -147,10 +165,11 @@ export default function LoginScreen() {
         result.params?.accessToken;
 
       const authorizationCode = result.params?.code;
-      if (!idToken && authorizationCode && request?.codeVerifier) {
+      const tokenExchangeClientId = Platform.OS === 'ios' ? iosClientId : androidClientId;
+      if (!idToken && authorizationCode && request?.codeVerifier && tokenExchangeClientId) {
         const tokenResponse = await exchangeCodeAsync(
           {
-            clientId: androidClientId,
+            clientId: tokenExchangeClientId,
             code: authorizationCode,
             redirectUri: authConfig.redirectUri,
             extraParams: {
