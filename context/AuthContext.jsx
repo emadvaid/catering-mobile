@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
+  signInWithAppleCredential,
   observeAuthState,
   signInWithEmail,
   signInWithGoogle,
@@ -48,6 +49,12 @@ export function AuthProvider({ children }) {
     return result.user;
   }
 
+  async function loginWithAppleTokens({ idToken, rawNonce }) {
+    const result = await signInWithAppleCredential({ idToken, rawNonce });
+    await upsertUserProfile(result.user);
+    return result.user;
+  }
+
   async function logout() {
     await signOutUser();
   }
@@ -61,6 +68,7 @@ export function AuthProvider({ children }) {
         signup,
         loginWithGoogle,
         loginWithGoogleTokens,
+        loginWithAppleTokens,
         logout,
       }}
     >

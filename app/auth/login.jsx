@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -23,12 +24,13 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LoginScreen() {
   const router = useRouter();
   const { redirect } = useLocalSearchParams();
-  const { login, loginWithGoogleTokens } = useAuth();
+  const { login, loginWithGoogleTokens, loginWithAppleTokens } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   const nextRoute = typeof redirect === 'string' ? redirect : '/';
   const isExpoGo =
@@ -198,6 +200,51 @@ export default function LoginScreen() {
     }
   }
 
+  async function handleAppleLogin() {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+
+    try {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Apple Sign-In', 'Apple Sign-In is not available on this device.');
+        return;
+      }
+
+      setAppleLoading(true);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        setAppleLoading(false);
+        Alert.alert('Apple Sign-In', 'Apple did not return a valid identity token.');
+        return;
+      }
+
+      await loginWithAppleTokens({
+        idToken: credential.identityToken,
+        rawNonce: credential.nonce || undefined,
+      });
+      router.replace(nextRoute);
+      setAppleLoading(false);
+    } catch (error) {
+      setAppleLoading(false);
+      if (error?.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+
+      Alert.alert(
+        'Apple Sign-In',
+        error?.message || 'The authorization attempt failed for an unknown reason.'
+      );
+    }
+  }
+
   useEffect(() => {
     if (!isAndroid || !request) {
       return;
@@ -270,6 +317,19 @@ export default function LoginScreen() {
             {googleLoading ? 'Connecting Google...' : 'Continue with Google'}
           </Text>
         </Pressable>
+
+        {Platform.OS === 'ios' ? (
+          <Pressable
+            onPress={handleAppleLogin}
+            style={({ pressed }) => [styles.appleButton, pressed ? styles.pressed : null]}
+            disabled={loading || googleLoading || appleLoading}
+          >
+            <Ionicons name="logo-apple" size={18} color="#fff" />
+            <Text style={styles.appleButtonText}>
+              {appleLoading ? 'Connecting Apple...' : 'Continue with Apple'}
+            </Text>
+          </Pressable>
+        ) : null}
 
         <Link href={`/auth/signup?redirect=${encodeURIComponent(nextRoute)}`} style={styles.link}>
           No account yet? Create one
@@ -388,6 +448,21 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     color: colors.text,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  appleButton: {
+    marginTop: 4,
+    height: 52,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#111827',
+  },
+  appleButtonText: {
+    color: '#fff',
     fontWeight: '700',
     fontSize: 15,
   },
