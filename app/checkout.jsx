@@ -37,9 +37,15 @@ const US_STATES = [
   'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
 ];
 
+const MAX_GUEST_COUNT = 500;
+
 function resolvePriceValue(item) {
   const value = Number(item.price);
   return Number.isFinite(value) ? value : 0;
+}
+
+function normalizeGuestCountInput(value) {
+  return value.replace(/\D/g, '');
 }
 
 export default function CheckoutScreen() {
@@ -123,6 +129,20 @@ export default function CheckoutScreen() {
         return;
       }
 
+      const guestCountValue = Number(guestCount);
+      if (!guestCount || !Number.isInteger(guestCountValue) || guestCountValue < 1) {
+        Alert.alert('Guest Count Required', 'Please enter a valid guest count using numbers only.');
+        return;
+      }
+
+      if (guestCountValue > MAX_GUEST_COUNT) {
+        Alert.alert(
+          'Guest Count Limit',
+          `Catering requests through the app are limited to ${MAX_GUEST_COUNT} guests. Please call Kabab Hut for larger events.`
+        );
+        return;
+      }
+
       setPlacingOrder(true);
 
       const orderId = await createOrder({
@@ -131,7 +151,7 @@ export default function CheckoutScreen() {
         items,
         total,
         eventDate: eventDate.trim(),
-        guestCount: guestCount.trim(),
+        guestCount: String(guestCountValue),
         notes: notes.trim(),
         userDetails: {
           fullName: profile?.fullName || user.displayName || '',
@@ -182,6 +202,11 @@ export default function CheckoutScreen() {
     }
   }
 
+  function handleGuestCountChange(value) {
+    const numericValue = normalizeGuestCountInput(value);
+    setGuestCount(numericValue);
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -217,8 +242,10 @@ export default function CheckoutScreen() {
           <Text style={styles.label}>Guest Count</Text>
           <TextInput
             value={guestCount}
-            onChangeText={setGuestCount}
+            onChangeText={handleGuestCountChange}
             keyboardType="number-pad"
+            inputMode="numeric"
+            maxLength={3}
             placeholder="150"
             placeholderTextColor="#9ca3af"
             style={styles.input}

@@ -5,6 +5,33 @@ const nodemailer = require('nodemailer');
 
 admin.initializeApp();
 
+const BUSINESS_NAME = 'Kabab Hut Catering';
+const BUSINESS_EMAIL = 'kababhutatlanta@gmail.com';
+const BUSINESS_PHONE = '(770) 925-4440';
+const BUSINESS_ADDRESS = '880 Indian Trail Lilburn Rd NW, Lilburn, GA 30047';
+const BUSINESS_WEBSITE = 'https://kababhutatl.com/';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeEmail(value) {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim();
+}
+
+function isLikelyEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function buildEmailHtml({ orderId, order = {} }) {
   const items = Array.isArray(order.items) ? order.items : [];
   const userDetails = order.userDetails || {};
@@ -135,6 +162,113 @@ function buildEmailText({ orderId, order = {} }) {
   ].join('\n');
 }
 
+function buildCustomerEmailHtml({ orderId, order = {} }) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const userDetails = order.userDetails || {};
+  const customerName = userDetails.fullName || 'there';
+  const rows = items
+    .map((item, idx) => {
+      const name = escapeHtml(item?.name || 'Unnamed item');
+      const type = escapeHtml(item?.type || 'menu');
+      const quantity = Number.isFinite(Number(item?.quantity)) ? Math.max(1, Number(item.quantity)) : 1;
+      const priceLabel = escapeHtml(item?.priceLabel || 'Contact for pricing');
+
+      return `
+        <tr>
+          <td style="padding:8px;border:1px solid #e5e7eb;">${idx + 1}</td>
+          <td style="padding:8px;border:1px solid #e5e7eb;">${name}</td>
+          <td style="padding:8px;border:1px solid #e5e7eb;">${type}</td>
+          <td style="padding:8px;border:1px solid #e5e7eb;">${quantity}</td>
+          <td style="padding:8px;border:1px solid #e5e7eb;">${priceLabel}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:20px;">
+      <div style="max-width:720px;margin:auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#7f1d1d,#b91c1c);color:#fff;padding:18px 20px;">
+          <h2 style="margin:0;font-size:22px;">We received your catering request</h2>
+          <p style="margin:6px 0 0 0;opacity:0.95;">Order ID: <strong>${escapeHtml(orderId)}</strong></p>
+        </div>
+
+        <div style="padding:20px;color:#111827;">
+          <p style="margin:0 0 14px 0;">Hi ${escapeHtml(customerName)},</p>
+          <p style="margin:0 0 14px 0;">
+            Thank you for placing your catering request with ${BUSINESS_NAME}. Our team has received
+            your order details and will contact you shortly to confirm availability, pricing, and next steps.
+          </p>
+
+          <h3 style="margin:18px 0 10px 0;color:#111827;">Event Details</h3>
+          <p style="margin:0 0 6px 0;"><strong>Event Date:</strong> ${escapeHtml(order.eventDate || 'Not provided')}</p>
+          <p style="margin:0 0 6px 0;"><strong>Guest Count:</strong> ${escapeHtml(order.guestCount || 'Not provided')}</p>
+          <p style="margin:0 0 14px 0;"><strong>Notes:</strong> ${escapeHtml(order.notes || 'None')}</p>
+
+          <h3 style="margin:18px 0 10px 0;color:#111827;">Order Items (${items.length})</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead>
+              <tr style="background:#f3f4f6;">
+                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">#</th>
+                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Item</th>
+                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Type</th>
+                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Qty</th>
+                <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Pricing</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="5" style="padding:8px;border:1px solid #e5e7eb;">No items found.</td></tr>'}
+            </tbody>
+          </table>
+
+          <h3 style="margin:18px 0 10px 0;color:#111827;">Contact Kabab Hut</h3>
+          <p style="margin:0 0 6px 0;"><strong>Email:</strong> ${BUSINESS_EMAIL}</p>
+          <p style="margin:0 0 6px 0;"><strong>Phone:</strong> ${BUSINESS_PHONE}</p>
+          <p style="margin:0 0 6px 0;"><strong>Address:</strong> ${BUSINESS_ADDRESS}</p>
+          <p style="margin:0;"><strong>Website:</strong> <a href="${BUSINESS_WEBSITE}">${BUSINESS_WEBSITE}</a></p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildCustomerEmailText({ orderId, order = {} }) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const userDetails = order.userDetails || {};
+  const customerName = userDetails.fullName || 'there';
+  const itemLines = items
+    .map((item, idx) => {
+      const name = item?.name || 'Unnamed item';
+      const type = item?.type || 'menu';
+      const quantity = Number.isFinite(Number(item?.quantity)) ? Math.max(1, Number(item.quantity)) : 1;
+      const priceLabel = item?.priceLabel || 'Contact for pricing';
+      return `${idx + 1}. ${name} (${type}) | qty ${quantity} | ${priceLabel}`;
+    })
+    .join('\n');
+
+  return [
+    `We received your catering request: ${orderId}`,
+    '',
+    `Hi ${customerName},`,
+    '',
+    `Thank you for placing your catering request with ${BUSINESS_NAME}. Our team has received your order details and will contact you shortly to confirm availability, pricing, and next steps.`,
+    '',
+    'Event Details:',
+    `Event Date: ${order.eventDate || 'Not provided'}`,
+    `Guest Count: ${order.guestCount || 'Not provided'}`,
+    `Notes: ${order.notes || 'None'}`,
+    '',
+    `Order Items (${items.length}):`,
+    itemLines || 'No items found.',
+    '',
+    'Contact Kabab Hut:',
+    `Email: ${BUSINESS_EMAIL}`,
+    `Phone: ${BUSINESS_PHONE}`,
+    `Address: ${BUSINESS_ADDRESS}`,
+    `Website: ${BUSINESS_WEBSITE}`,
+  ].join('\n');
+}
+
 function getMailer() {
   const smtpHost = process.env.SMTP_HOST;
   const smtpPort = Number(process.env.SMTP_PORT || 587);
@@ -184,6 +318,7 @@ exports.sendOrderEmailToAdmin = onDocumentCreated(
 
   const orderId = event.params.orderId;
   const order = event.data.data() || {};
+  const customerEmail = normalizeEmail(order.userEmail);
 
   try {
     const transporter = getMailer();
@@ -196,17 +331,58 @@ exports.sendOrderEmailToAdmin = onDocumentCreated(
       html: buildEmailHtml({ orderId, order }),
     });
 
+    logger.info('Order email sent', { orderId, to: adminOrderEmail });
+
+    let customerEmailDelivery = {
+      status: 'skipped',
+      reason: 'missing_or_invalid_customer_email',
+      checkedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (isLikelyEmail(customerEmail)) {
+      try {
+        await transporter.sendMail({
+          from: fromEmail,
+          to: customerEmail,
+          replyTo: adminOrderEmail,
+          subject: `Kabab Hut Catering received your order #${orderId}`,
+          text: buildCustomerEmailText({ orderId, order }),
+          html: buildCustomerEmailHtml({ orderId, order }),
+        });
+
+        customerEmailDelivery = {
+          status: 'sent',
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        logger.info('Customer order email sent', { orderId, to: customerEmail });
+      } catch (customerError) {
+        customerEmailDelivery = {
+          status: 'failed',
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: customerError?.message || String(customerError),
+        };
+
+        logger.error('Failed to send customer order email', {
+          orderId,
+          to: customerEmail,
+          error: customerError?.message || customerError,
+        });
+      }
+    } else {
+      logger.warn('Customer order email skipped', { orderId, customerEmail });
+    }
+
     await admin.firestore().doc(`orders/${orderId}`).set(
       {
         emailDelivery: {
           status: 'sent',
           sentAt: admin.firestore.FieldValue.serverTimestamp(),
         },
+        customerEmailDelivery,
       },
       { merge: true }
     );
-
-    logger.info('Order email sent', { orderId, to: adminOrderEmail });
   } catch (error) {
     await admin.firestore().doc(`orders/${orderId}`).set(
       {

@@ -68,8 +68,18 @@ function getMenuImageSource(item) {
 
 function mergeMenuWithFallback(remoteItems, fallback) {
   const normalizedRemote = normalizeRemoteItems(remoteItems, fallback);
+  const seenRemoteKeys = new Set();
+  const uniqueRemote = normalizedRemote.filter((item) => {
+    const key = (item.imageKey || item.name || '').toLowerCase();
+    if (!key || seenRemoteKeys.has(key)) {
+      return false;
+    }
+
+    seenRemoteKeys.add(key);
+    return true;
+  });
   const existingKeys = new Set(
-    normalizedRemote.map((item) => (item.imageKey || item.name || '').toLowerCase())
+    uniqueRemote.map((item) => (item.imageKey || item.name || '').toLowerCase())
   );
 
   const missingFallback = fallback.filter((item) => {
@@ -77,7 +87,7 @@ function mergeMenuWithFallback(remoteItems, fallback) {
     return !existingKeys.has(key);
   });
 
-  return [...normalizedRemote, ...missingFallback];
+  return [...uniqueRemote, ...missingFallback];
 }
 
 export default function MenuScreen() {

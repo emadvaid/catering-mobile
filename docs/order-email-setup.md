@@ -1,6 +1,6 @@
 # Order Email Notification Setup (Firebase)
 
-This sends an email to admin whenever a new document is created in `orders`.
+This sends order emails whenever a new document is created in `orders`.
 
 ## 1. What is already implemented in app code
 
@@ -14,7 +14,9 @@ This sends an email to admin whenever a new document is created in `orders`.
   - `userDetails.zipCode`
 - Cloud Function trigger is added in `functions/index.js`:
   - Trigger: `orders/{orderId}` on create
-  - Sends formatted HTML + text email using SMTP (Nodemailer)
+  - Sends formatted HTML + text email to the admin using SMTP (Nodemailer)
+  - Sends a customer confirmation email to `order.userEmail` with order details and Kabab Hut contact details
+  - Customer emails do not include estimated total/contact-for-quote totals
 
 ## 2. Install Firebase CLI (if not installed)
 
@@ -77,6 +79,8 @@ firebase deploy --only functions
 5. Verify:
    - Firestore `orders` has new doc
    - Admin mailbox received email with full order summary
+   - Customer mailbox received confirmation email with order details
+   - Firestore order doc has `emailDelivery.status` and `customerEmailDelivery.status`
 
 ## 7. Cost notes (important)
 
