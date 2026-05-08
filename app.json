@@ -3,7 +3,7 @@
     "scheme": "cateringmobile",
     "name": "Kababhut catering",
     "slug": "catering-mobile",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,11 +17,11 @@
       "supportsTablet": true,
       "icon": "./assets/icon.png",
       "bundleIdentifier": "com.kababhutatl.catering",
-      "buildNumber": "2"
+      "buildNumber": "4"
     },
     "android": {
       "package": "com.kababhutatl.catering",
-      "versionCode": 9,
+      "versionCode": 10,
       "intentFilters": [
         {
           "action": "VIEW",
