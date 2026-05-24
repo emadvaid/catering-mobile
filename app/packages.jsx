@@ -14,7 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
 import { CUSTOMIZABLE_PACKAGE, PACKAGE_CARDS } from '../data/packages';
-import { MENU_ITEMS, resolveMenuImage, resolveMenuImageKey } from '../data/menuItems';
+import {
+  formatList,
+  getPackageImageSource,
+  normalizePackages,
+  pickHighlightDish,
+} from '../lib/contentModels';
 import { fetchPackages } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
 
@@ -26,99 +31,11 @@ const PACKAGE_HEADER_IMAGES = {
   'pkg-d': require('../assets/cards-header/card-4.jpg'),
 };
 
-function formatGuestsLabel(value) {
-  const raw = (value || '').toString().trim();
-  if (!raw) {
-    return '200+ ppl';
-  }
-
-  const hasPeopleWord = /\b(ppl|people|guests?)\b/i.test(raw);
-  if (hasPeopleWord) {
-    return raw;
-  }
-
-  if (/^\d+\+?$/.test(raw)) {
-    return `${raw} ppl`;
-  }
-
-  return raw;
-}
-
-function formatList(items) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return ['Contact us for options'];
-  }
-
-  return items;
-}
-
-function mergePackagesWithFallback(remotePackages, fallback) {
-  const normalizedRemote = remotePackages.map((pkg, index) => ({
-    id: pkg.id || `pkg-${index}`,
-    order: pkg.order || index + 1,
-    name: (pkg.name || `Package ${index + 1}`).trim(),
-    badge: pkg.badge || 'Large events',
-    guests: formatGuestsLabel(pkg.guests),
-    appetizers: formatList(pkg.appetizers),
-    mains: formatList(pkg.mains),
-    regularDessert: formatList(pkg.regularDessert),
-    premiumDessert: formatList(pkg.premiumDessert),
-    imageKey: pkg.imageKey || null,
-    imagePath: pkg.imagePath || pkg.image || null,
-  }));
-
-  // Avoid duplicate package cards from Firestore with same package name.
-  const dedupedRemote = [];
-  const seenNames = new Set();
-  normalizedRemote.forEach((pkg) => {
-    const key = pkg.name.toLowerCase();
-    if (seenNames.has(key)) {
-      return;
-    }
-    seenNames.add(key);
-    dedupedRemote.push(pkg);
-  });
-
-  const existingNames = new Set(dedupedRemote.map((pkg) => (pkg.name || '').toLowerCase()));
-  const missingFallback = fallback.filter(
-    (pkg) => !existingNames.has((pkg.name || '').toLowerCase())
-  );
-
-  return [...dedupedRemote, ...missingFallback];
-}
-
-function pickHighlightDish(pkg) {
-  const firstMain = Array.isArray(pkg.mains) && pkg.mains.length > 0 ? pkg.mains[0] : '';
-  const firstAppetizer =
-    Array.isArray(pkg.appetizers) && pkg.appetizers.length > 0 ? pkg.appetizers[0] : '';
-  return firstMain || firstAppetizer || pkg.name;
-}
-
-function getPackageImageSource(pkg) {
-  const directMatch = PACKAGE_HEADER_IMAGES[pkg.id];
-  if (directMatch) {
-    return directMatch;
-  }
-
-  const fromOrder = PACKAGE_HEADER_IMAGES[`pkg-${String.fromCharCode(96 + Number(pkg.order || 0))}`];
-  if (fromOrder) {
-    return fromOrder;
-  }
-
-  const highlight = pickHighlightDish(pkg);
-  const imageKey = resolveMenuImageKey({
-    imageKey: pkg.imageKey || null,
-    name: highlight,
-    legacyImagePath: pkg.imagePath || '',
-  });
-  return resolveMenuImage(imageKey, highlight, MENU_ITEMS[0]?.image);
-}
-
 export default function PackagesScreen() {
   const { addItem } = useCart();
 
   const [guestCount, setGuestCount] = useState('');
-  const [cards, setCards] = useState(PACKAGE_CARDS);
+  const [cards, setCards] = useState(() => normalizePackages(PACKAGE_CARDS));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -133,7 +50,7 @@ export default function PackagesScreen() {
         }
 
         if (Array.isArray(remotePackages) && remotePackages.length > 0) {
-          setCards((prev) => mergePackagesWithFallback(remotePackages, prev));
+          setCards(normalizePackages(remotePackages));
         }
       } catch (error) {
         // local fallback stays active
@@ -222,7 +139,7 @@ export default function PackagesScreen() {
           sortedCards.map((pkg) => (
             <View key={pkg.id} style={styles.packageCard}>
               <View style={styles.heroWrap}>
-                <Image source={getPackageImageSource(pkg)} style={styles.heroImage} resizeMode="cover" />
+                <Image source={getPackageImageSource(pkg, PACKAGE_HEADER_IMAGES)} style={styles.heroImage} resizeMode="cover" />
                 <View style={styles.heroOverlay} />
                 <View style={styles.heroContent}>
                   <Text style={styles.heroKicker}>Curated Spread</Text>

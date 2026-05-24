@@ -14,98 +14,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
-import {
-  MENU_CATEGORIES,
-  MENU_ITEMS,
-  resolveMenuImage,
-  resolveMenuImageKey,
-} from '../data/menuItems';
+import { MENU_ITEMS } from '../data/menuItems';
+import { getMenuCategories, getMenuImageSource, normalizeMenuItems } from '../lib/contentModels';
 import { fetchMenuItems } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
 
 const FAVORITES_KEY = 'menuFavoriteIds';
-
-function normalizeRemoteItems(remoteItems, fallback) {
-  return remoteItems.map((item, index) => {
-    const itemName = item.name || item.title || `Menu Item ${index + 1}`;
-    const mappedImageKey = resolveMenuImageKey({
-      imageKey: item.imageKey || null,
-      name: itemName,
-      legacyImagePath: item.image || item.imagePath || '',
-    });
-
-    const fallbackImage =
-      typeof fallback[index]?.image === 'number'
-        ? fallback[index].image
-        : typeof fallback[0]?.image === 'number'
-          ? fallback[0].image
-          : MENU_ITEMS[0]?.image;
-
-    return {
-      id: item.id || `menu-${index}`,
-      name: itemName,
-      imageKey: mappedImageKey,
-      category: item.category || 'All',
-      description: item.description || 'Contact us for more details.',
-      priceLabel: item.priceLabel || 'Contact for pricing',
-      price: Number.isFinite(item.price) ? item.price : 0,
-      image: resolveMenuImage(
-        mappedImageKey,
-        itemName,
-        fallbackImage
-      ),
-    };
-  });
-}
-
-function getMenuImageSource(item) {
-  if (typeof item.image === 'number') {
-    return item.image;
-  }
-
-  return resolveMenuImage(item.imageKey || null, item.name || '', MENU_ITEMS[0]?.image);
-}
-
-function mergeMenuWithFallback(remoteItems, fallback) {
-  const normalizedRemote = normalizeRemoteItems(remoteItems, fallback);
-  const seenRemoteKeys = new Set();
-  const uniqueRemote = normalizedRemote.filter((item) => {
-    const key = (item.imageKey || item.name || '').toLowerCase();
-    if (!key || seenRemoteKeys.has(key)) {
-      return false;
-    }
-
-    seenRemoteKeys.add(key);
-    return true;
-  });
-  const existingKeys = new Set(
-    uniqueRemote.map((item) => (item.imageKey || item.name || '').toLowerCase())
-  );
-
-  const missingFallback = fallback.filter((item) => {
-    const key = (item.imageKey || item.name || '').toLowerCase();
-    return !existingKeys.has(key);
-  });
-
-  return [...uniqueRemote, ...missingFallback];
-}
 
 export default function MenuScreen() {
   const { category } = useLocalSearchParams();
   const { addItem } = useCart();
 
   const [activeCategory, setActiveCategory] = useState(
-    typeof category === 'string' && MENU_CATEGORIES.includes(category) ? category : 'All'
+    typeof category === 'string' ? category : 'All'
   );
-  const [items, setItems] = useState(MENU_ITEMS);
+  const [items, setItems] = useState(() => normalizeMenuItems(MENU_ITEMS));
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState({});
+  const categories = useMemo(() => getMenuCategories(items), [items]);
 
   useEffect(() => {
-    if (typeof category === 'string' && MENU_CATEGORIES.includes(category)) {
+    if (typeof category === 'string') {
       setActiveCategory(category);
     }
   }, [category]);
+
+  useEffect(() => {
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory('All');
+    }
+  }, [activeCategory, categories]);
 
   useEffect(() => {
     let isMounted = true;
@@ -161,7 +99,7 @@ export default function MenuScreen() {
         }
 
         if (Array.isArray(remoteMenu) && remoteMenu.length > 0) {
-          setItems(mergeMenuWithFallback(remoteMenu, MENU_ITEMS));
+          setItems(normalizeMenuItems(remoteMenu));
         }
       } catch (error) {
         // local fallback stays active
@@ -200,7 +138,7 @@ export default function MenuScreen() {
         <Text style={styles.title}>Our Menu</Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {MENU_CATEGORIES.map((label) => {
+          {categories.map((label) => {
             const isActive = activeCategory === label;
 
             return (

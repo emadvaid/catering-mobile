@@ -5,13 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../components/navigation/BottomNav';
 import { useCart } from '../context/CartContext';
-import {
-  MENU_CATEGORIES,
-  MENU_ITEMS,
-  resolveMenuImage,
-  resolveMenuImageKey,
-} from '../data/menuItems';
+import { MENU_ITEMS } from '../data/menuItems';
 import { PACKAGE_CARDS } from '../data/packages';
+import {
+  getMenuCategories,
+  getMenuImageSource,
+  normalizeMenuItems,
+  normalizePackages,
+} from '../lib/contentModels';
 import { fetchMenuItems, fetchPackages } from '../lib/firebase/contentService';
 import { colors, radii, spacing } from '../lib/theme';
 
@@ -38,24 +39,6 @@ const HOW_IT_WORKS = [
   },
 ];
 
-function formatGuestsLabel(value) {
-  const raw = (value || '').toString().trim();
-  if (!raw) {
-    return '200+ ppl';
-  }
-
-  const hasPeopleWord = /\b(ppl|people|guests?)\b/i.test(raw);
-  if (hasPeopleWord) {
-    return raw;
-  }
-
-  if (/^\d+\+?$/.test(raw)) {
-    return `${raw} ppl`;
-  }
-
-  return raw;
-}
-
 function toCartItem(item) {
   return {
     id: item.id,
@@ -66,105 +49,11 @@ function toCartItem(item) {
   };
 }
 
-function mergeMenuWithFallback(remoteItems, fallback) {
-  const normalizedRemote = remoteItems.map((item, index) => {
-    const itemName = item.name || item.title || `Menu Item ${index + 1}`;
-    const mappedImageKey = resolveMenuImageKey({
-      imageKey: item.imageKey || null,
-      name: itemName,
-      legacyImagePath: item.image || item.imagePath || '',
-    });
-
-    const fallbackImage =
-      typeof fallback[index]?.image === 'number'
-        ? fallback[index].image
-        : typeof fallback[0]?.image === 'number'
-          ? fallback[0].image
-          : MENU_ITEMS[0]?.image;
-
-    return {
-      id: item.id || `menu-${index}`,
-      name: itemName,
-      imageKey: mappedImageKey,
-      category: item.category || 'All',
-      description: item.description || 'Contact us for more details.',
-      priceLabel: item.priceLabel || 'Contact for pricing',
-      price: Number.isFinite(item.price) ? item.price : 0,
-      image: resolveMenuImage(
-        mappedImageKey,
-        itemName,
-        fallbackImage
-      ),
-    };
-  });
-  const seenRemoteKeys = new Set();
-  const uniqueRemote = normalizedRemote.filter((item) => {
-    const key = (item.imageKey || item.name || '').toLowerCase();
-    if (!key || seenRemoteKeys.has(key)) {
-      return false;
-    }
-
-    seenRemoteKeys.add(key);
-    return true;
-  });
-
-  const existingKeys = new Set(
-    uniqueRemote.map((item) => (item.imageKey || item.name || '').toLowerCase())
-  );
-
-  const missingFallback = fallback.filter((item) => {
-    const key = (item.imageKey || item.name || '').toLowerCase();
-    return !existingKeys.has(key);
-  });
-
-  return [...uniqueRemote, ...missingFallback];
-}
-
-function getMenuImageSource(item) {
-  if (typeof item.image === 'number') {
-    return item.image;
-  }
-
-  return resolveMenuImage(item.imageKey || null, item.name || '', MENU_ITEMS[0]?.image);
-}
-
-function mergePackagesWithFallback(remotePackages, fallback) {
-  const normalizedRemote = remotePackages.map((pkg, index) => ({
-    id: pkg.id || `pkg-${index}`,
-    order: pkg.order || index + 1,
-    name: (pkg.name || `Package ${index + 1}`).trim(),
-    badge: pkg.badge || 'Large events',
-    guests: formatGuestsLabel(pkg.guests),
-    appetizers: Array.isArray(pkg.appetizers) ? pkg.appetizers : [],
-    mains: Array.isArray(pkg.mains) ? pkg.mains : [],
-    regularDessert: Array.isArray(pkg.regularDessert) ? pkg.regularDessert : [],
-    premiumDessert: Array.isArray(pkg.premiumDessert) ? pkg.premiumDessert : [],
-  }));
-
-  const dedupedRemote = [];
-  const seenNames = new Set();
-  normalizedRemote.forEach((pkg) => {
-    const key = pkg.name.toLowerCase();
-    if (seenNames.has(key)) {
-      return;
-    }
-    seenNames.add(key);
-    dedupedRemote.push(pkg);
-  });
-
-  const existingNames = new Set(dedupedRemote.map((pkg) => (pkg.name || '').toLowerCase()));
-  const missingFallback = fallback.filter(
-    (pkg) => !existingNames.has((pkg.name || '').toLowerCase())
-  );
-
-  return [...dedupedRemote, ...missingFallback];
-}
-
 export default function HomeScreen() {
   const { addItem } = useCart();
 
-  const [menuItems, setMenuItems] = useState(MENU_ITEMS);
-  const [packageCards, setPackageCards] = useState(PACKAGE_CARDS);
+  const [menuItems, setMenuItems] = useState(() => normalizeMenuItems(MENU_ITEMS));
+  const [packageCards, setPackageCards] = useState(() => normalizePackages(PACKAGE_CARDS));
   const [loadingContent, setLoadingContent] = useState(true);
 
   useEffect(() => {
@@ -182,11 +71,11 @@ export default function HomeScreen() {
         }
 
         if (Array.isArray(remoteMenu) && remoteMenu.length > 0) {
-          setMenuItems((prev) => mergeMenuWithFallback(remoteMenu, prev));
+          setMenuItems(normalizeMenuItems(remoteMenu));
         }
 
         if (Array.isArray(remotePackages) && remotePackages.length > 0) {
-          setPackageCards((prev) => mergePackagesWithFallback(remotePackages, prev));
+          setPackageCards(normalizePackages(remotePackages));
         }
       } catch (error) {
         // local fallback remains in place
@@ -205,6 +94,7 @@ export default function HomeScreen() {
   }, []);
 
   const featuredItems = useMemo(() => menuItems.slice(0, 8), [menuItems]);
+  const menuCategories = useMemo(() => getMenuCategories(menuItems), [menuItems]);
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -251,7 +141,7 @@ export default function HomeScreen() {
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
-            {MENU_CATEGORIES.filter((category) => category !== 'All').map((category) => (
+            {menuCategories.filter((category) => category !== 'All').map((category) => (
               <Pressable
                 key={category}
                 onPress={() => router.push(`/menu?category=${encodeURIComponent(category)}`)}

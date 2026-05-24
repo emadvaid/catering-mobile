@@ -129,6 +129,11 @@ export default function CheckoutScreen() {
         return;
       }
 
+      if (!eventDate.trim()) {
+        Alert.alert('Event Date Required', 'Please select an event date before placing your order.');
+        return;
+      }
+
       const guestCountValue = Number(guestCount);
       if (!guestCount || !Number.isInteger(guestCountValue) || guestCountValue < 1) {
         Alert.alert('Guest Count Required', 'Please enter a valid guest count using numbers only.');
