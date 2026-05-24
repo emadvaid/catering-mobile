@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import {
   AlertCircle,
@@ -13,6 +13,7 @@ import {
   Menu,
   Package,
   Phone,
+  Printer,
   Search,
   ShieldCheck,
   Utensils,
@@ -26,6 +27,7 @@ const EMPTY_FORM = {
   password: '',
 };
 const PAGE_SIZE = 8;
+const CONFIRMATION_STATUSES = new Set(['completed', 'cancelled', 'archived']);
 
 function validateEmail(value) {
   const trimmed = value.trim();
@@ -295,6 +297,15 @@ function normalizeSearch(value) {
   return value.toLowerCase().trim();
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function OrderStatusSelect({ order, onStatusChange, disabled }) {
   return (
     <select
@@ -325,7 +336,46 @@ function MetricCard({ icon, label, value }) {
   );
 }
 
-function OrderDetail({ order, updatingOrderId, onStatusChange }) {
+function ConfirmationDialog({ pendingStatusChange, onCancel, onConfirm, saving }) {
+  if (!pendingStatusChange) {
+    return null;
+  }
+
+  const { order, status } = pendingStatusChange;
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        className="confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="status-confirm-title"
+      >
+        <div className="confirm-icon">
+          <AlertCircle size={24} aria-hidden="true" />
+        </div>
+        <div>
+          <h2 id="status-confirm-title">Confirm status change</h2>
+          <p>
+            Mark order <strong>#{order.id}</strong> for <strong>{getCustomerName(order)}</strong>{' '}
+            as <strong>{status}</strong>?
+          </p>
+        </div>
+        <div className="confirm-actions">
+          <button className="secondary-button" type="button" onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
+          <button className="danger-button" type="button" onClick={onConfirm} disabled={saving}>
+            {saving ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : null}
+            Confirm
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function OrderDetail({ order, updatingOrderId, onStatusChange, onPrint }) {
   if (!order) {
     return (
       <aside className="detail-panel empty-detail">
@@ -352,6 +402,11 @@ function OrderDetail({ order, updatingOrderId, onStatusChange }) {
           disabled={updatingOrderId === order.id}
         />
       </div>
+
+      <button className="print-button" type="button" onClick={() => onPrint(order)}>
+        <Printer size={17} aria-hidden="true" />
+        Print order
+      </button>
 
       <div className="detail-grid">
         <div>
@@ -434,6 +489,7 @@ function Dashboard({ user, adminProfile, onLogout }) {
   const [statusMessage, setStatusMessage] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
 
   useEffect(() => {
     const unsubscribe = listenToOrders({
@@ -514,18 +570,236 @@ function Dashboard({ user, adminProfile, onLogout }) {
     return { pending, upcoming };
   }, [orders]);
 
-  async function handleStatusChange(orderId, status) {
+  useEffect(() => {
+    if (currentPage !== safeCurrentPage) {
+      setCurrentPage(safeCurrentPage);
+    }
+  }, [currentPage, safeCurrentPage]);
+
+  useEffect(() => {
+    if (loadingOrders) {
+      return;
+    }
+
+    const visibleSelected = filteredOrders.some((order) => order.id === selectedOrderId);
+    if (!visibleSelected) {
+      setSelectedOrderId(filteredOrders[0]?.id || '');
+    }
+  }, [filteredOrders, loadingOrders, selectedOrderId]);
+
+  async function commitStatusChange(orderId, status) {
     setUpdatingOrderId(orderId);
     setStatusMessage('');
 
     try {
       await updateOrderStatus(orderId, status);
-      setStatusMessage('Order status updated.');
+      setStatusMessage(`Order #${orderId} marked ${status}.`);
     } catch (error) {
       setStatusMessage(error?.message || 'Could not update order status.');
     } finally {
       setUpdatingOrderId('');
     }
+  }
+
+  function handleStatusChange(orderId, status) {
+    const order = orders.find((entry) => entry.id === orderId);
+    if (!order) {
+      setStatusMessage('Could not find that order. Refresh and try again.');
+      return;
+    }
+
+    if (CONFIRMATION_STATUSES.has(status)) {
+      setPendingStatusChange({ order, status });
+      return;
+    }
+
+    commitStatusChange(orderId, status);
+  }
+
+  async function confirmPendingStatusChange() {
+    if (!pendingStatusChange) {
+      return;
+    }
+
+    const { order, status } = pendingStatusChange;
+    await commitStatusChange(order.id, status);
+    setPendingStatusChange(null);
+  }
+
+  function printOrder(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemRows = items
+      .map(
+        (item, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>
+              <strong>${escapeHtml(item.name || 'Unnamed item')}</strong>
+              <span>${escapeHtml(item.type || 'menu')}</span>
+            </td>
+            <td>${escapeHtml(item.quantity || 1)}</td>
+            <td>${escapeHtml(item.priceLabel || formatMoney(item.price))}</td>
+          </tr>
+        `
+      )
+      .join('');
+
+    const printHtml = `
+      <!doctype html>
+      <html>
+        <head>
+          <title>Order ${order.id}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              font-family: Arial, sans-serif;
+              color: #111827;
+              background: #fff;
+              padding: 28px;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              gap: 24px;
+              border-bottom: 2px solid #7f1d1d;
+              padding-bottom: 18px;
+              margin-bottom: 22px;
+            }
+            h1 { margin: 0 0 6px; font-size: 26px; }
+            h2 { margin: 24px 0 10px; font-size: 16px; }
+            p { margin: 4px 0; }
+            .muted { color: #6b7280; }
+            .status {
+              display: inline-block;
+              border: 1px solid #eadfd2;
+              border-radius: 6px;
+              padding: 6px 10px;
+              color: #7f1d1d;
+              font-weight: 700;
+              text-transform: capitalize;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 10px 18px;
+              margin-bottom: 18px;
+            }
+            .box {
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 12px;
+            }
+            .label {
+              display: block;
+              color: #6b7280;
+              font-size: 12px;
+              font-weight: 700;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            th, td {
+              border: 1px solid #e5e7eb;
+              padding: 9px;
+              text-align: left;
+              vertical-align: top;
+            }
+            th {
+              background: #f9fafb;
+              font-size: 12px;
+              text-transform: uppercase;
+            }
+            td span {
+              display: block;
+              color: #6b7280;
+              font-size: 12px;
+              margin-top: 2px;
+            }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <header class="header">
+            <div>
+              <h1>Kabab Hut Catering Order</h1>
+              <p class="muted">Order ID: ${escapeHtml(order.id)}</p>
+              <p class="muted">Created: ${escapeHtml(formatDateTime(order.createdAt))}</p>
+            </div>
+            <div>
+              <span class="status">${escapeHtml(order.status || 'pending')}</span>
+            </div>
+          </header>
+
+          <section class="grid">
+            <div class="box">
+              <span class="label">Customer</span>
+              <strong>${escapeHtml(getCustomerName(order))}</strong>
+              <p>${escapeHtml(order.userEmail || 'N/A')}</p>
+              <p>${escapeHtml(getCustomerPhone(order))}</p>
+            </div>
+            <div class="box">
+              <span class="label">Event</span>
+              <strong>${escapeHtml(order.eventDate || 'N/A')}</strong>
+              <p>Guests: ${escapeHtml(order.guestCount || 'N/A')}</p>
+              <p>Total: ${escapeHtml(formatMoney(order.total))}</p>
+            </div>
+            <div class="box">
+              <span class="label">Address</span>
+              <p>${escapeHtml(buildAddress(order.userDetails))}</p>
+            </div>
+            <div class="box">
+              <span class="label">Notes</span>
+              <p>${escapeHtml(order.notes || 'No notes provided.')}</p>
+            </div>
+          </section>
+
+          <section>
+            <h2>Items (${items.length})</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Pricing</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  itemRows ||
+                  '<tr><td colspan="4">No items found.</td></tr>'
+                }
+              </tbody>
+            </table>
+          </section>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([printHtml], { type: 'text/html' });
+    const printUrl = URL.createObjectURL(blob);
+    const printWindow = window.open(printUrl, '_blank', 'width=900,height=700');
+
+    if (!printWindow) {
+      URL.revokeObjectURL(printUrl);
+      setStatusMessage('Pop-up blocked. Allow pop-ups to print this order.');
+      return;
+    }
+
+    const printAndCleanup = () => {
+      printWindow.focus();
+      printWindow.print();
+      setTimeout(() => URL.revokeObjectURL(printUrl), 30000);
+    };
+
+    printWindow.addEventListener('load', () => setTimeout(printAndCleanup, 250), { once: true });
   }
 
   return (
@@ -693,7 +967,11 @@ function Dashboard({ user, adminProfile, onLogout }) {
                     ) : (
                       <tr>
                         <td colSpan="6">
-                          <div className="table-state">No orders match this view.</div>
+                          <div className="table-state">
+                            {orders.length === 0
+                              ? 'No orders found yet.'
+                              : 'No orders match this search or filter.'}
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -733,12 +1011,54 @@ function Dashboard({ user, adminProfile, onLogout }) {
               order={selectedOrder}
               updatingOrderId={updatingOrderId}
               onStatusChange={handleStatusChange}
+              onPrint={printOrder}
             />
           </section>
         </main>
       </div>
+
+      <ConfirmationDialog
+        pendingStatusChange={pendingStatusChange}
+        onCancel={() => setPendingStatusChange(null)}
+        onConfirm={confirmPendingStatusChange}
+        saving={Boolean(updatingOrderId)}
+      />
     </div>
   );
+}
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <main className="loading-shell">
+          <section className="auth-panel">
+            <div className="brand-row">
+              <div className="brand-mark">
+                <AlertCircle size={24} aria-hidden="true" />
+              </div>
+              <div>
+                <p className="eyebrow">Admin Portal</p>
+                <h1>Something went wrong</h1>
+              </div>
+            </div>
+            <p className="muted">Refresh the page and sign in again if needed.</p>
+          </section>
+        </main>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 export default function App() {
@@ -811,10 +1131,12 @@ export default function App() {
   }
 
   return (
-    <Dashboard
-      user={authState.user}
-      adminProfile={authState.adminProfile}
-      onLogout={handleLogout}
-    />
+    <ErrorBoundary>
+      <Dashboard
+        user={authState.user}
+        adminProfile={authState.adminProfile}
+        onLogout={handleLogout}
+      />
+    </ErrorBoundary>
   );
 }
