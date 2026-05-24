@@ -5,6 +5,7 @@ import {
   setPersistence,
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -26,9 +27,10 @@ if (missingConfigKeys.length > 0) {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 setPersistence(auth, browserLocalPersistence).catch(() => {
   // Firebase falls back to the default persistence if local persistence is unavailable.
 });
 
-export { auth, db };
+export { auth, db, storage };

@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Eye,
   EyeOff,
+  Image as ImageIcon,
   LoaderCircle,
   LockKeyhole,
   LogOut,
@@ -13,21 +14,57 @@ import {
   Menu,
   Package,
   Phone,
+  Plus,
   Printer,
+  RotateCcw,
+  Save,
   Search,
   ShieldCheck,
+  Upload,
   Utensils,
+  X,
 } from 'lucide-react';
 import { auth } from './lib/firebase';
 import { getAdminProfile, isActiveAdmin, signOutAdmin } from './lib/adminAuth';
 import { listenToOrders, ORDER_STATUSES, updateOrderStatus } from './lib/orders';
+import {
+  archiveMenuItem,
+  createMenuItem,
+  listenToMenuItems,
+  restoreMenuItem,
+  updateMenuItem,
+} from './lib/menuItems';
 
 const EMPTY_FORM = {
   email: '',
   password: '',
 };
 const PAGE_SIZE = 8;
+const MENU_PAGE_SIZE = 6;
 const CONFIRMATION_STATUSES = new Set(['completed', 'cancelled', 'archived']);
+const MENU_CATEGORY_OPTIONS = [
+  'Biryani',
+  'Curries',
+  'Grilled',
+  'Vegetarian',
+  'Appetizers',
+  'Desserts',
+  'Drinks',
+  'Sides',
+  'Bread',
+];
+const EMPTY_MENU_FORM = {
+  id: '',
+  name: '',
+  category: '',
+  description: '',
+  price: '0',
+  priceLabel: 'Contact for pricing',
+  imageKey: '',
+  imageUrl: '',
+  order: '999',
+  active: true,
+};
 
 function validateEmail(value) {
   const trimmed = value.trim();
@@ -336,6 +373,446 @@ function MetricCard({ icon, label, value }) {
   );
 }
 
+function normalizeMenuForm(item = EMPTY_MENU_FORM) {
+  return {
+    id: item.id || '',
+    name: item.name || '',
+    category: item.category || '',
+    description: item.description || '',
+    price: Number.isFinite(Number(item.price)) ? String(item.price) : '0',
+    priceLabel: item.priceLabel || 'Contact for pricing',
+    imageKey: item.imageKey || '',
+    imageUrl: item.imageUrl || '',
+    order: Number.isFinite(Number(item.order)) ? String(item.order) : '999',
+    active: item.active !== false,
+  };
+}
+
+function MenuManager() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showArchived, setShowArchived] = useState(false);
+  const [form, setForm] = useState(EMPTY_MENU_FORM);
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [currentMenuPage, setCurrentMenuPage] = useState(1);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!selectedImageFile) {
+      setImagePreviewUrl(form.imageUrl || '');
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedImageFile);
+    setImagePreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [form.imageUrl, selectedImageFile]);
+
+  useEffect(() => {
+    const unsubscribe = listenToMenuItems({
+      onData: (nextItems) => {
+        setItems(nextItems);
+        setLoading(false);
+        setError('');
+      },
+      onError: (nextError) => {
+        setError(nextError?.message || 'Unable to load menu items.');
+        setLoading(false);
+      },
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    const search = normalizeSearch(searchText);
+
+    return items.filter((item) => {
+      if (!showArchived && item.active === false) {
+        return false;
+      }
+
+      if (categoryFilter !== 'all' && item.category !== categoryFilter) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+
+      return [item.name, item.category, item.description, item.priceLabel]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(search);
+    });
+  }, [categoryFilter, items, searchText, showArchived]);
+
+  const categoryOptions = useMemo(() => {
+    const currentCategories = items
+      .map((item) => item.category)
+      .filter((category) => category && category !== 'All');
+    const options = [...MENU_CATEGORY_OPTIONS, ...currentCategories, form.category].filter(Boolean);
+
+    return Array.from(new Set(options));
+  }, [form.category, items]);
+
+  const totalMenuPages = Math.max(1, Math.ceil(filteredItems.length / MENU_PAGE_SIZE));
+  const safeMenuPage = Math.min(currentMenuPage, totalMenuPages);
+  const menuStartIndex = (safeMenuPage - 1) * MENU_PAGE_SIZE;
+  const paginatedMenuItems = filteredItems.slice(menuStartIndex, menuStartIndex + MENU_PAGE_SIZE);
+  const menuVisibleStart = filteredItems.length === 0 ? 0 : menuStartIndex + 1;
+  const menuVisibleEnd = Math.min(menuStartIndex + MENU_PAGE_SIZE, filteredItems.length);
+
+  useEffect(() => {
+    setCurrentMenuPage(1);
+  }, [categoryFilter, searchText, showArchived]);
+
+  function updateFormField(key, value) {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+    setMessage('');
+  }
+
+  function startCreate() {
+    setForm(EMPTY_MENU_FORM);
+    setSelectedImageFile(null);
+    setMessage('');
+  }
+
+  function startEdit(item) {
+    setForm(normalizeMenuForm(item));
+    setSelectedImageFile(null);
+    setMessage('');
+  }
+
+  function handleImageSelection(event) {
+    const file = event.target.files?.[0] || null;
+    setSelectedImageFile(file);
+    event.target.value = '';
+    setMessage('');
+    setError('');
+  }
+
+  function clearSelectedImage() {
+    setSelectedImageFile(null);
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      if (form.id) {
+        await updateMenuItem(form.id, form, selectedImageFile);
+        setMessage(`Updated ${form.name}.`);
+        setSelectedImageFile(null);
+      } else {
+        await createMenuItem(form, selectedImageFile);
+        setMessage(`Created ${form.name}.`);
+        setForm(EMPTY_MENU_FORM);
+        setSelectedImageFile(null);
+      }
+    } catch (submitError) {
+      setError(submitError?.message || 'Could not save menu item.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleArchive(item) {
+    if (!window.confirm(`Archive ${item.name}? It will be hidden from the mobile app.`)) {
+      return;
+    }
+
+    setSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      await archiveMenuItem(item.id);
+      setMessage(`Archived ${item.name}.`);
+      if (form.id === item.id) {
+        setForm((prev) => ({ ...prev, active: false }));
+      }
+    } catch (archiveError) {
+      setError(archiveError?.message || 'Could not archive menu item.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRestore(item) {
+    setSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      await restoreMenuItem(item.id);
+      setMessage(`Restored ${item.name}.`);
+      if (form.id === item.id) {
+        setForm((prev) => ({ ...prev, active: true }));
+      }
+    } catch (restoreError) {
+      setError(restoreError?.message || 'Could not restore menu item.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="manager-layout">
+      <div className="manager-list panel">
+        <div className="manager-header">
+          <div>
+            <p className="eyebrow">Menu Manager</p>
+            <h2>Menu Items</h2>
+          </div>
+          <button className="primary-button compact-button" type="button" onClick={startCreate}>
+            <Plus size={17} aria-hidden="true" />
+            New
+          </button>
+        </div>
+
+        <div className="toolbar no-border">
+          <div className="search-shell">
+            <Search size={18} aria-hidden="true" />
+            <input
+              type="search"
+              placeholder="Search menu"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              aria-label="Search menu items"
+            />
+          </div>
+
+          <select
+            className="filter-select"
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            aria-label="Filter menu by category"
+          >
+            <option value="all">All categories</option>
+            {categoryOptions.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(event) => setShowArchived(event.target.checked)}
+            />
+            Show archived
+          </label>
+        </div>
+
+        {message ? <p className="status-message">{message}</p> : null}
+        {error ? <div className="form-alert">{error}</div> : null}
+
+        <div className="content-list">
+          {loading ? (
+            <div className="table-state">
+              <LoaderCircle className="spin" size={20} aria-hidden="true" />
+              Loading menu...
+            </div>
+          ) : filteredItems.length > 0 ? (
+            paginatedMenuItems.map((item) => (
+              <article
+                className={`content-row ${form.id === item.id ? 'selected-row' : ''}`}
+                key={item.id}
+              >
+                <button className="content-main" type="button" onClick={() => startEdit(item)}>
+                  <strong>{item.name || 'Unnamed item'}</strong>
+                  <span>{item.category || 'All'}</span>
+                  <span>{item.priceLabel || 'Contact for pricing'}</span>
+                </button>
+                <div className="row-actions">
+                  {item.active === false ? (
+                    <button
+                      className="pager-button"
+                      type="button"
+                      onClick={() => handleRestore(item)}
+                      disabled={saving}
+                    >
+                      <RotateCcw size={15} aria-hidden="true" />
+                      Restore
+                    </button>
+                  ) : (
+                    <button
+                      className="pager-button danger-outline"
+                      type="button"
+                      onClick={() => handleArchive(item)}
+                      disabled={saving}
+                    >
+                      Archive
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="table-state">No menu items match this view.</div>
+          )}
+        </div>
+
+        <div className="pagination-bar menu-pagination">
+          <span>
+            Showing {menuVisibleStart}-{menuVisibleEnd} of {filteredItems.length}
+          </span>
+          <div className="pagination-actions">
+            <button
+              className="pager-button"
+              type="button"
+              onClick={() => setCurrentMenuPage((page) => Math.max(1, page - 1))}
+              disabled={safeMenuPage === 1}
+            >
+              Previous
+            </button>
+            <strong>
+              Page {safeMenuPage} of {totalMenuPages}
+            </strong>
+            <button
+              className="pager-button"
+              type="button"
+              onClick={() => setCurrentMenuPage((page) => Math.min(totalMenuPages, page + 1))}
+              disabled={safeMenuPage === totalMenuPages}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <form className="manager-form panel" onSubmit={handleSubmit}>
+        <div className="manager-header">
+          <div>
+            <p className="eyebrow">{form.id ? 'Edit Item' : 'Create Item'}</p>
+            <h2>{form.id ? form.name || 'Menu item' : 'New menu item'}</h2>
+          </div>
+        </div>
+
+        <div className="form-grid">
+          <label>
+            Name
+            <input
+              value={form.name}
+              onChange={(event) => updateFormField('name', event.target.value)}
+              required
+              placeholder="Chicken Biryani"
+            />
+          </label>
+
+          <label>
+            Category
+            <select
+              value={form.category}
+              onChange={(event) => updateFormField('category', event.target.value)}
+            >
+              <option value="">Select category</option>
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="full-span">
+            Description
+            <textarea
+              value={form.description}
+              onChange={(event) => updateFormField('description', event.target.value)}
+              placeholder="Short menu description"
+              rows="3"
+            />
+          </label>
+
+          <label className="full-span">
+            Price Label
+            <input
+              value={form.priceLabel}
+              onChange={(event) => updateFormField('priceLabel', event.target.value)}
+              placeholder="Contact for pricing"
+            />
+          </label>
+
+          <div className="image-upload-field full-span">
+            <span>Menu Image</span>
+            <div className="image-upload-box">
+              <div className="image-preview">
+                {imagePreviewUrl ? (
+                  <img src={imagePreviewUrl} alt={form.name || 'Menu item preview'} />
+                ) : (
+                  <ImageIcon size={28} aria-hidden="true" />
+                )}
+              </div>
+              <div className="image-upload-copy">
+                <strong>{selectedImageFile ? selectedImageFile.name : 'Upload an image'}</strong>
+                <span>JPG, PNG, or WebP. Maximum 5 MB.</span>
+                <div className="image-upload-actions">
+                  <label className="secondary-button upload-button">
+                    <Upload size={16} aria-hidden="true" />
+                    Choose image
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleImageSelection}
+                    />
+                  </label>
+                  {selectedImageFile ? (
+                    <button
+                      className="pager-button"
+                      type="button"
+                      onClick={clearSelectedImage}
+                      disabled={saving}
+                    >
+                      <X size={15} aria-hidden="true" />
+                      Remove selection
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <label className="checkbox-label full-span">
+            <input
+              type="checkbox"
+              checked={form.active}
+              onChange={(event) => updateFormField('active', event.target.checked)}
+            />
+            Active in mobile app
+          </label>
+        </div>
+
+        <div className="form-actions">
+          <button className="secondary-button" type="button" onClick={startCreate} disabled={saving}>
+            Clear
+          </button>
+          <button className="primary-button" type="submit" disabled={saving}>
+            {saving ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
+            {form.id ? 'Save changes' : 'Create item'}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function ConfirmationDialog({ pendingStatusChange, onCancel, onConfirm, saving }) {
   if (!pendingStatusChange) {
     return null;
@@ -479,6 +956,7 @@ function OrderDetail({ order, updatingOrderId, onStatusChange, onPrint }) {
 }
 
 function Dashboard({ user, adminProfile, onLogout }) {
+  const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState('');
@@ -490,6 +968,7 @@ function Dashboard({ user, adminProfile, onLogout }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
+  const activeTabLabel = activeTab === 'menu' ? 'Menu' : activeTab === 'packages' ? 'Packages' : 'Orders';
 
   useEffect(() => {
     const unsubscribe = listenToOrders({
@@ -816,11 +1295,21 @@ function Dashboard({ user, adminProfile, onLogout }) {
         </div>
 
         <nav className="sidebar-nav">
-          <button className="nav-item active" type="button" title="Orders">
+          <button
+            className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+            type="button"
+            title="Orders"
+            onClick={() => setActiveTab('orders')}
+          >
             <ClipboardList size={19} aria-hidden="true" />
             <span>Orders</span>
           </button>
-          <button className="nav-item" type="button" disabled title="Menu manager coming later">
+          <button
+            className={`nav-item ${activeTab === 'menu' ? 'active' : ''}`}
+            type="button"
+            title="Menu"
+            onClick={() => setActiveTab('menu')}
+          >
             <Utensils size={19} aria-hidden="true" />
             <span>Menu</span>
           </button>
@@ -844,7 +1333,7 @@ function Dashboard({ user, adminProfile, onLogout }) {
             </button>
             <div>
               <p className="eyebrow">Current Tab</p>
-              <h1>Orders</h1>
+              <h1>{activeTabLabel}</h1>
             </div>
           </div>
 
@@ -858,162 +1347,168 @@ function Dashboard({ user, adminProfile, onLogout }) {
         </header>
 
         <main className="dashboard-shell">
-          <section className="metrics-grid" aria-label="Order metrics">
-            <MetricCard
-              icon={<ClipboardList size={20} aria-hidden="true" />}
-              label="Total orders"
-              value={orders.length}
-            />
-            <MetricCard
-              icon={<AlertCircle size={20} aria-hidden="true" />}
-              label="Pending"
-              value={metrics.pending}
-            />
-            <MetricCard
-              icon={<CalendarDays size={20} aria-hidden="true" />}
-              label="Upcoming"
-              value={metrics.upcoming}
-            />
-          </section>
+          {activeTab === 'orders' ? (
+            <>
+              <section className="metrics-grid" aria-label="Order metrics">
+                <MetricCard
+                  icon={<ClipboardList size={20} aria-hidden="true" />}
+                  label="Total orders"
+                  value={orders.length}
+                />
+                <MetricCard
+                  icon={<AlertCircle size={20} aria-hidden="true" />}
+                  label="Pending"
+                  value={metrics.pending}
+                />
+                <MetricCard
+                  icon={<CalendarDays size={20} aria-hidden="true" />}
+                  label="Upcoming"
+                  value={metrics.upcoming}
+                />
+              </section>
 
-          <section className="workspace">
-            <div className="orders-panel">
-              <div className="toolbar">
-                <div className="search-shell">
-                  <Search size={18} aria-hidden="true" />
-                  <input
-                    type="search"
-                    placeholder="Search orders"
-                    value={searchText}
-                    onChange={(event) => setSearchText(event.target.value)}
-                    aria-label="Search orders"
-                  />
-                </div>
+              <section className="workspace">
+                <div className="orders-panel">
+                  <div className="toolbar">
+                    <div className="search-shell">
+                      <Search size={18} aria-hidden="true" />
+                      <input
+                        type="search"
+                        placeholder="Search orders"
+                        value={searchText}
+                        onChange={(event) => setSearchText(event.target.value)}
+                        aria-label="Search orders"
+                      />
+                    </div>
 
-                <select
-                  className="filter-select"
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                  aria-label="Filter by status"
-                >
-                  <option value="all">All statuses</option>
-                  {ORDER_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <select
+                      className="filter-select"
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value)}
+                      aria-label="Filter by status"
+                    >
+                      <option value="all">All statuses</option>
+                      {ORDER_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              {statusMessage ? <p className="status-message">{statusMessage}</p> : null}
-              {ordersError ? <div className="form-alert">{ordersError}</div> : null}
+                  {statusMessage ? <p className="status-message">{statusMessage}</p> : null}
+                  {ordersError ? <div className="form-alert">{ordersError}</div> : null}
 
-              <div className="orders-table-wrap">
-                <table className="orders-table">
-                  <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th>Event</th>
-                      <th>Guests</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                      <th>Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loadingOrders ? (
-                      <tr>
-                        <td colSpan="6">
-                          <div className="table-state">
-                            <LoaderCircle className="spin" size={20} aria-hidden="true" />
-                            Loading orders...
-                          </div>
-                        </td>
-                      </tr>
-                    ) : paginatedOrders.length > 0 ? (
-                      paginatedOrders.map((order) => (
-                        <tr
-                          key={order.id}
-                          className={order.id === selectedOrderId ? 'selected-row' : ''}
-                          onClick={() => setSelectedOrderId(order.id)}
-                        >
-                          <td>
-                            <button
-                              className="customer-button"
-                              type="button"
+                  <div className="orders-table-wrap">
+                    <table className="orders-table">
+                      <thead>
+                        <tr>
+                          <th>Customer</th>
+                          <th>Event</th>
+                          <th>Guests</th>
+                          <th>Total</th>
+                          <th>Status</th>
+                          <th>Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loadingOrders ? (
+                          <tr>
+                            <td colSpan="6">
+                              <div className="table-state">
+                                <LoaderCircle className="spin" size={20} aria-hidden="true" />
+                                Loading orders...
+                              </div>
+                            </td>
+                          </tr>
+                        ) : paginatedOrders.length > 0 ? (
+                          paginatedOrders.map((order) => (
+                            <tr
+                              key={order.id}
+                              className={order.id === selectedOrderId ? 'selected-row' : ''}
                               onClick={() => setSelectedOrderId(order.id)}
                             >
-                              <strong>{getCustomerName(order)}</strong>
-                              <span>{order.userEmail || 'No email'}</span>
-                              <span className="phone-line">
-                                <Phone size={13} aria-hidden="true" />
-                                {getCustomerPhone(order)}
-                              </span>
-                            </button>
-                          </td>
-                          <td>{order.eventDate || 'N/A'}</td>
-                          <td>{order.guestCount || 'N/A'}</td>
-                          <td>{formatMoney(order.total)}</td>
-                          <td>
-                            <OrderStatusSelect
-                              order={order}
-                              onStatusChange={handleStatusChange}
-                              disabled={updatingOrderId === order.id}
-                            />
-                          </td>
-                          <td>{formatDate(order.createdAt)}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="6">
-                          <div className="table-state">
-                            {orders.length === 0
-                              ? 'No orders found yet.'
-                              : 'No orders match this search or filter.'}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                              <td>
+                                <button
+                                  className="customer-button"
+                                  type="button"
+                                  onClick={() => setSelectedOrderId(order.id)}
+                                >
+                                  <strong>{getCustomerName(order)}</strong>
+                                  <span>{order.userEmail || 'No email'}</span>
+                                  <span className="phone-line">
+                                    <Phone size={13} aria-hidden="true" />
+                                    {getCustomerPhone(order)}
+                                  </span>
+                                </button>
+                              </td>
+                              <td>{order.eventDate || 'N/A'}</td>
+                              <td>{order.guestCount || 'N/A'}</td>
+                              <td>{formatMoney(order.total)}</td>
+                              <td>
+                                <OrderStatusSelect
+                                  order={order}
+                                  onStatusChange={handleStatusChange}
+                                  disabled={updatingOrderId === order.id}
+                                />
+                              </td>
+                              <td>{formatDate(order.createdAt)}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="6">
+                              <div className="table-state">
+                                {orders.length === 0
+                                  ? 'No orders found yet.'
+                                  : 'No orders match this search or filter.'}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
 
-              <div className="pagination-bar">
-                <span>
-                  Showing {visibleStart}-{visibleEnd} of {filteredOrders.length}
-                </span>
-                <div className="pagination-actions">
-                  <button
-                    className="pager-button"
-                    type="button"
-                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                    disabled={safeCurrentPage === 1}
-                  >
-                    Previous
-                  </button>
-                  <strong>
-                    Page {safeCurrentPage} of {totalPages}
-                  </strong>
-                  <button
-                    className="pager-button"
-                    type="button"
-                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                    disabled={safeCurrentPage === totalPages}
-                  >
-                    Next
-                  </button>
+                  <div className="pagination-bar">
+                    <span>
+                      Showing {visibleStart}-{visibleEnd} of {filteredOrders.length}
+                    </span>
+                    <div className="pagination-actions">
+                      <button
+                        className="pager-button"
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                        disabled={safeCurrentPage === 1}
+                      >
+                        Previous
+                      </button>
+                      <strong>
+                        Page {safeCurrentPage} of {totalPages}
+                      </strong>
+                      <button
+                        className="pager-button"
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                        disabled={safeCurrentPage === totalPages}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <OrderDetail
-              order={selectedOrder}
-              updatingOrderId={updatingOrderId}
-              onStatusChange={handleStatusChange}
-              onPrint={printOrder}
-            />
-          </section>
+                <OrderDetail
+                  order={selectedOrder}
+                  updatingOrderId={updatingOrderId}
+                  onStatusChange={handleStatusChange}
+                  onPrint={printOrder}
+                />
+              </section>
+            </>
+          ) : null}
+
+          {activeTab === 'menu' ? <MenuManager /> : null}
         </main>
       </div>
 
